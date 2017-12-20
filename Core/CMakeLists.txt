@@ -131,6 +131,8 @@ else()
   # The library type (STATIC or SHARED) is determined by the parameter
   # BUILD_SHARED_LIBS.
   add_library( elastix
+    Main/elxCLGPUInterface.cxx
+    Main/elxCLGPUInterface.h
     Main/elxParameterObject.cxx
     Main/elxParameterObject.h
     Main/elastixlib.cxx
@@ -138,6 +140,14 @@ else()
     Kernel/elxElastixMain.cxx
     Kernel/elxElastixMain.h
     ${InstallFilesForExecutables}
+  )
+  target_include_directories( elastix PUBLIC
+  /usr/local/cuda/include 
+  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL
+  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL/Filters   
+  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL/ITKimprovements
+  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL/Factories
+  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Components/Resamplers/OpenCLResampler
   )
 endif()
 

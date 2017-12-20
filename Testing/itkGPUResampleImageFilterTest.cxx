@@ -725,6 +725,8 @@ main( int argc, char * argv[] )
   }
 
   unsigned int runTimes           = 1;
+
+  printf("running %d times", runTimes);
   std::string  parametersFileName = "";
   for( std::size_t i = 0; i < transforms.size(); i++ )
   {
@@ -859,12 +861,14 @@ main( int argc, char * argv[] )
   double                         tmp1, tmp2;
   for( std::size_t i = 0; i < Dimension; i++ )
   {
-    tmp1 = randomNum->GetUniformVariate( 0.9, 1.1 );
+    // tmp1 = randomNum->GetUniformVariate( 0.9, 1.1 );
+    tmp1 = 1.0 / inputSpacing[i];
     tmp2 = inputSpacing[ i ] * tmp1;
     s << tmp2; s >> outputSpacing[ i ]; s.clear();
 
     tmp1 = randomNum->GetUniformVariate( -10.0, 10.0 );
-    tmp2 = inputOrigin[ i ] + tmp1;
+    // tmp2 = inputOrigin[ i ] + tmp1;
+    tmp2 = inputOrigin[ i ];
     s << tmp2; s >> outputOrigin[ i ]; s.clear();
 
     for( unsigned int j = 0; j < Dimension; j++ )
@@ -875,7 +879,8 @@ main( int argc, char * argv[] )
     }
 
     tmp1            = randomNum->GetUniformVariate( 0.9, 1.1 );
-    outputSize[ i ] = itk::Math::Round< SizeValueType >( inputSize[ i ] * tmp1 );
+    // outputSize[ i ] = itk::Math::Round< SizeValueType >( inputSize[ i ] * tmp1 );
+    outputSize[ i ] = itk::Math::Round< SizeValueType >( inputSize[ i ] * inputSpacing[i] / outputSpacing[i] );
   }
 
   cpuFilter->SetDefaultPixelValue( -1.0 );

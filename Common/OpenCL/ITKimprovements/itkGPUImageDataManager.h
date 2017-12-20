@@ -80,7 +80,8 @@ public:
   itkNewMacro( Self );
   itkTypeMacro( GPUImageDataManager, GPUDataManager );
 
-  void SetImagePointer( typename ImageType::Pointer img );
+  // void SetImagePointer( typename ImageType::Pointer img );
+  void SetImagePointer( ImageType* img );
 
   /** actual GPU->CPU memory copy takes place here */
   virtual void UpdateCPUBuffer();
@@ -101,7 +102,8 @@ private:
   GPUImageDataManager( const Self & );   // purposely not implemented
   void operator=( const Self & );        // purposely not implemented
 
-  typename ImageType::Pointer m_Image;
+  // typename ImageType::Pointer m_Image;
+  ImageType* m_Image;
 };
 
 } // namespace itk

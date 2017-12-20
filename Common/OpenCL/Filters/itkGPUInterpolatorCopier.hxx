@@ -29,6 +29,7 @@
 #include "itkGPUNearestNeighborInterpolateImageFunction.h"
 #include "itkGPULinearInterpolateImageFunction.h"
 #include "itkGPUBSplineInterpolateImageFunction.h"
+#include "itkGPUBSplineDecompositionImageFilterFactory.h"
 
 // GPU factory include
 #include "itkGPUImageFactory.h"
@@ -139,6 +140,11 @@ GPUInterpolatorCopier< TTypeList, NDimensions, TInterpolator, TOutputCoordRep >
         GPUImageFactoryPointer imageFactory = GPUImageFactoryType::New();
         itk::ObjectFactoryBase::RegisterFactory( imageFactory );
 
+        typedef itk::GPUBSplineDecompositionImageFilterFactory2< TTypeList, TTypeList, NDimensions > GPUBSplineDecompositionImageFilterFactoryType;
+        typedef typename GPUBSplineDecompositionImageFilterFactoryType::Pointer           GPUBSplineDecompositionImageFilterFactoryTypePointer;
+        GPUBSplineDecompositionImageFilterFactoryTypePointer decompose_img_factory = GPUBSplineDecompositionImageFilterFactoryType::New();
+        itk::ObjectFactoryBase::RegisterFactory( decompose_img_factory );
+
         // Create GPU BSpline interpolator in explicit mode
         typedef GPUBSplineInterpolateImageFunction<
           GPUInputImageType, GPUCoordRepType, GPUCoordRepType > GPUBSplineInterpolatorType;
@@ -148,6 +154,7 @@ GPUInterpolatorCopier< TTypeList, NDimensions, TInterpolator, TOutputCoordRep >
 
         // UnRegister image factory
         itk::ObjectFactoryBase::UnRegisterFactory( imageFactory );
+        itk::ObjectFactoryBase::UnRegisterFactory( decompose_img_factory );
 
         this->m_ExplicitOutput = bsplineInterpolator;
       }

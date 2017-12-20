@@ -224,7 +224,12 @@ public:
 protected:
 
   GPUImage();
-  virtual ~GPUImage() {}
+  virtual ~GPUImage() 
+  {
+#if ( defined( _WIN32 ) && defined( _DEBUG ) ) || !defined( NDEBUG )
+    std::cout << "Releasing GPU Image " << this <<std::endl;
+#endif
+  }
 
   virtual void PrintSelf( std::ostream & os, Indent indent ) const;
 

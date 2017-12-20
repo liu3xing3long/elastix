@@ -43,7 +43,8 @@ namespace itk
 {
 template< typename ImageType >
 void
-GPUImageDataManager< ImageType >::SetImagePointer( typename ImageType::Pointer img )
+// GPUImageDataManager< ImageType >::SetImagePointer( typename ImageType::Pointer img )
+GPUImageDataManager< ImageType >::SetImagePointer( ImageType* img )
 {
   m_Image = img;
 }
@@ -59,7 +60,8 @@ GPUImageDataManager< ImageType >::UpdateCPUBuffer()
     return;
   }
 
-  if( m_Image.IsNotNull() )
+  // if( m_Image.IsNotNull() )
+  if( m_Image != NULL )
   {
     m_Mutex.Lock();
 
@@ -77,7 +79,8 @@ GPUImageDataManager< ImageType >::UpdateCPUBuffer()
     {
       cl_int errid;
 #if ( defined( _WIN32 ) && defined( _DEBUG ) ) || !defined( NDEBUG )
-      std::cout << "clEnqueueReadBuffer GPU->CPU" << "..." << std::endl;
+      std::cout << "clEnqueueReadBuffer GPU->CPU" << "..." 
+                << m_GPUBuffer << "->" << m_CPUBuffer << std::endl;
 #endif
 
 #ifdef OPENCL_PROFILING
@@ -114,7 +117,8 @@ GPUImageDataManager< ImageType >::UpdateGPUBuffer()
     return;
   }
 
-  if( m_Image.IsNotNull() )
+  // if( m_Image.IsNotNull() )
+  if( m_Image != NULL )
   {
     m_Mutex.Lock();
 
@@ -132,7 +136,9 @@ GPUImageDataManager< ImageType >::UpdateGPUBuffer()
     {
       cl_int errid;
 #if ( defined( _WIN32 ) && defined( _DEBUG ) ) || !defined( NDEBUG )
-      std::cout << "clEnqueueWriteBuffer CPU->GPU" << "..." << std::endl;
+      std::cout << "clEnqueueWriteBuffer CPU->GPU" << "..." 
+                << m_CPUBuffer << "->" << m_GPUBuffer << std::endl;
+      
 #endif
 
 #ifdef OPENCL_PROFILING
