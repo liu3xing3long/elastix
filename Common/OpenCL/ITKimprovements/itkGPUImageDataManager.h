@@ -80,8 +80,17 @@ public:
   itkNewMacro( Self );
   itkTypeMacro( GPUImageDataManager, GPUDataManager );
 
-  // void SetImagePointer( typename ImageType::Pointer img );
-  void SetImagePointer( ImageType* img );
+  static const unsigned int        ImageDimension = ImageType::ImageDimension;
+
+  itkGetModifiableObjectMacro(GPUBufferedRegionIndex, GPUDataManager);
+  itkGetModifiableObjectMacro(GPUBufferedRegionSize, GPUDataManager);
+
+  void SetImagePointer( typename ImageType::Pointer img );
+  ImageType *GetImagePointer()
+  {
+    return this->m_Image.GetPointer();
+  }
+  // void SetImagePointer( ImageType* img );
 
   /** actual GPU->CPU memory copy takes place here */
   virtual void UpdateCPUBuffer();
@@ -93,8 +102,8 @@ public:
   virtual void Graft( const GPUImageDataManager * data );
 
 protected:
-
-  GPUImageDataManager() { m_Image = NULL; }
+  GPUImageDataManager() {}
+// GPUImageDataManager() { m_Image = NULL; }
   virtual ~GPUImageDataManager() {}
 
 private:
@@ -102,8 +111,13 @@ private:
   GPUImageDataManager( const Self & );   // purposely not implemented
   void operator=( const Self & );        // purposely not implemented
 
-  // typename ImageType::Pointer m_Image;
-  ImageType* m_Image;
+  WeakPointer<ImageType>            m_Image;   // WeakPointer has to be used here
+                                               // to avoid SmartPointer loop
+
+  int                               m_BufferedRegionIndex[ImageType::ImageDimension];
+  int                               m_BufferedRegionSize[ImageType::ImageDimension];
+  typename GPUDataManager::Pointer  m_GPUBufferedRegionIndex;
+  typename GPUDataManager::Pointer  m_GPUBufferedRegionSize;
 };
 
 } // namespace itk

@@ -701,6 +701,17 @@ if( ELASTIX_USE_OPENCL )
      -p   ${elastix_SOURCE_DIR}/Testing/parameters_AdvancedBSplineDeformableTransformTest.txt
      -c -rmse 0.3 )
 
+   elx_add_opencl_test( GPUBinaryDilateImageFilterTest "" "OpenCL" "")
+   elx_add_opencl_test( GPUBinaryErodeImageFilterTest "" "OpenCL" "")
+   elx_add_opencl_test( GPUBinaryDilateImageFilterTest3  "" "OpenCL" ""
+   "/home/liuxinglong01/1HDD/work/vnet.pytorch/working_imgs_1mm_xyz/test/LKDS-00004_Threshold.mha"
+   "/home/liuxinglong01/1HDD/work/vnet.pytorch/working_imgs_1mm_xyz/test/LKDS-00004_Threshold_gpu_dilate.mha"
+   1 0 1 1)
+   elx_add_opencl_test( GPUBinaryErodeImageFilterTest3 "" "OpenCL" ""
+   "/home/liuxinglong01/1HDD/work/vnet.pytorch/working_imgs_1mm_xyz/test/LKDS-00004_Threshold.mha"
+   "/home/liuxinglong01/1HDD/work/vnet.pytorch/working_imgs_1mm_xyz/test/LKDS-00004_Threshold_gpu_morph_erode.mha"
+   1 0 1 1)
+   
 endif()
 
 #---------------------------------------------------------------------
