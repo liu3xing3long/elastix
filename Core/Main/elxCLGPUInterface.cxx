@@ -3,10 +3,12 @@
 #include <iomanip> // setprecision, etc.
 #include <sstream>
 
-#include "itkCLGPUInterfaceHelper.h"
-
 // GPU include files
 #include "itkGPUResampleImageFilter.h"
+#include "itkGPUBinaryDilateImageFilter.h"
+#include "itkGPUBinaryErodeImageFilter.h"
+#include "itkBinaryBallStructuringElement.h"
+
 
 // ITK include files
 #include "itkImageFileReader.h"
@@ -63,7 +65,7 @@ void CLGPUInterface::PrintInfo()
 
 
 //------------------------------------------------------------------------------
-GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer itkImage)
+GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer itkImage, std::vector<float> outSpacing)
 {
   // basic typedefs
   typedef CPUInputImageType::SizeType::SizeValueType  SizeValueType;
@@ -117,7 +119,7 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
 
   for( std::size_t i = 0; i < InterCPUDIM; i++ )
   {
-    tmp1 = 1.0 / inputSpacing[i];
+    tmp1 = outSpacing[i] / inputSpacing[i];
     tmp2 = inputSpacing[ i ] * tmp1;
     s << tmp2; s >> outputSpacing[ i ]; s.clear();
 
@@ -200,8 +202,250 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
     gpuFilter->SetOutputStartIndex( inputRegion.GetIndex() );
     
     gpuFilter->SetInput( itkGPUImage );
-    gpuFilter->SetTransform(gpuTransform);
-    gpuFilter->SetInterpolator(gpuInterpolator);
+    gpuFilter->SetTransform( gpuTransform );
+    gpuFilter->SetInterpolator( gpuInterpolator );
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    std::ostringstream o_string;
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    
+    itk::ReleaseContext();
+    return NULL;
+  }
+
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+BinGPUOutputImageType::Pointer CLGPUInterface::BinaryDilate(BinCPUInputImageType::Pointer itkImage, int iRadius)
+{
+  // some constants used and not directly assigned outside the function are placed here
+  int iForegroundVal = 1, iBackgroundVal = 0, iEnableBoundary = 0;
+  std::ostringstream o_string;
+
+  // construct gpu image
+  BinGPUInputImageType::Pointer itkGPUImage = BinGPUInputImageType::New();
+  try
+  {
+    itkGPUImage->GraftITKImage( itkImage );
+    itkGPUImage->AllocateGPU();
+    itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+    itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+    itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    std::ostringstream o_string;
+    o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+  }
+
+  // construct filter
+  typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+  SRType kernel;
+  kernel.SetRadius( iRadius );
+  kernel.CreateStructuringElement();
+
+  typedef itk::GPUBinaryDilateImageFilter< BinGPUInputImageType, BinGPUOutputImageType, SRType > FilterType;
+  FilterType::Pointer gpuFilter = FilterType::New();
+  gpuFilter->SetInput( itkGPUImage );
+  gpuFilter->SetKernel( kernel );
+
+  // test default values
+  if ( gpuFilter->GetBackgroundValue( ) != itk::NumericTraits< InterBinGPUPixType >::NonpositiveMin() )
+  {
+    o_string << "Wrong default background value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+  if ( gpuFilter->GetForegroundValue( ) != itk::NumericTraits< InterBinGPUPixType >::max() )
+  {
+    o_string << "Wrong default foreground value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+  if ( gpuFilter->GetDilateValue( ) != itk::NumericTraits< InterBinGPUPixType >::max() )
+  {
+    o_string << "Wrong default dilate value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+  if ( gpuFilter->GetBoundaryToForeground( ) != false )
+  {
+    o_string << "Wrong default BoundaryToForeground value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  //Exercise Set/Get methods for Background Value
+  gpuFilter->SetForegroundValue( iForegroundVal );
+  if ( gpuFilter->GetForegroundValue( ) != iForegroundVal )
+  {
+    o_string << "Set/Get Foreground value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  // the same with the alias
+  gpuFilter->SetDilateValue( iForegroundVal );
+  if ( gpuFilter->GetDilateValue( ) != iForegroundVal )
+  {
+    o_string << "Set/Get Dilate value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  gpuFilter->SetBackgroundValue( iBackgroundVal );
+  if ( gpuFilter->GetBackgroundValue( ) != iBackgroundVal )
+  {
+    o_string << "Set/Get Background value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  gpuFilter->SetBoundaryToForeground( iEnableBoundary );
+  if ( gpuFilter->GetBoundaryToForeground( ) != (bool)(iEnableBoundary) )
+  {
+    o_string << "Set/Get BoundaryToForeground value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+ // finally, generating output
+  try
+  {
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    std::ostringstream o_string;
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    
+    itk::ReleaseContext();
+    return NULL;
+  }
+
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+BinGPUOutputImageType::Pointer CLGPUInterface::BinaryErode(BinCPUInputImageType::Pointer itkImage, int iRadius)
+{
+  // some constants used and not directly assigned outside the function are placed here
+  // NOTE, we enable the iEnableBoundary here to make sure the eroded image not get smaller
+  // which is like the 'padding' in deep learning  
+  int iForegroundVal = 1, iBackgroundVal = 0, iEnableBoundary = 1;
+  std::ostringstream o_string;
+
+  // construct gpu image
+  BinGPUInputImageType::Pointer itkGPUImage = BinGPUInputImageType::New();
+  try
+  {
+    itkGPUImage->GraftITKImage( itkImage );
+    itkGPUImage->AllocateGPU();
+    itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+    itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+    itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    std::ostringstream o_string;
+    o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+  }
+
+  // construct filter
+  typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+  SRType kernel;
+  kernel.SetRadius( iRadius );
+  kernel.CreateStructuringElement();
+
+  typedef itk::GPUBinaryErodeImageFilter< BinGPUInputImageType, BinGPUOutputImageType, SRType > FilterType;
+  FilterType::Pointer gpuFilter = FilterType::New();
+  gpuFilter->SetInput( itkGPUImage );
+  gpuFilter->SetKernel( kernel );
+
+  // test default values
+  if ( gpuFilter->GetBackgroundValue() != itk::NumericTraits< InterBinGPUPixType >::NonpositiveMin() )
+  {
+    o_string << "Wrong default background value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+  if ( gpuFilter->GetForegroundValue() != itk::NumericTraits< InterBinGPUPixType >::max() )
+  {
+    o_string << "Wrong default foreground value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+  if ( gpuFilter->GetErodeValue() != itk::NumericTraits< InterBinGPUPixType >::max() )
+  {
+    o_string << "Wrong default erode value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+  if ( gpuFilter->GetBoundaryToForeground() != true )
+  {
+    o_string << "Wrong default BoundaryToForeground value." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  //Exercise Set/Get methods for Background Value
+  gpuFilter->SetForegroundValue( iForegroundVal );
+  if ( gpuFilter->GetForegroundValue() != iForegroundVal )
+  {
+    o_string << "Set/Get Foreground value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  // the same with the alias
+  gpuFilter->SetErodeValue( iForegroundVal );
+  if ( gpuFilter->GetErodeValue() != iForegroundVal )
+  {
+    o_string << "Set/Get Erode value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  gpuFilter->SetBackgroundValue( iBackgroundVal );
+  if ( gpuFilter->GetBackgroundValue() != iBackgroundVal )
+  {
+    o_string << "Set/Get Background value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  gpuFilter->SetBoundaryToForeground( iEnableBoundary );
+  if ( gpuFilter->GetBoundaryToForeground() != (bool)( iEnableBoundary ) )
+  {
+    o_string << "Set/Get BoundaryToForeground value problem." << std::endl;
+    SetLastError(o_string.str().c_str());
+    return NULL;
+  }
+
+  // finally, generating output
+  try
+  {
 #ifndef NDEBUG
     std::cout << "filter settled." << std::endl;
 #endif
@@ -226,24 +470,7 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
 //--------------------------------------------------------
 CLGPUInterface::CLGPUInterface()
 {
-  // Create and check OpenCL context
-  if( !itk::CreateContext() )
-  {
-    return;
-  }
-
-  // Check for the device 'double' support
-  itk::OpenCLContext::Pointer context = itk::OpenCLContext::GetInstance();
-  if( !context->GetDefaultDevice().HasDouble() )
-  {
-    std::ostringstream o_string;
-    o_string << "Your OpenCL device: " << context->GetDefaultDevice().GetName()
-              << ", does not support 'double' computations. Consider updating it." << std::endl;
-    SetLastError(o_string.str().c_str());
-
-    itk::ReleaseContext();
-    return;
-  }
+  Init();
 }
 
 //--------------------------------------------------------
@@ -253,6 +480,65 @@ CLGPUInterface::~CLGPUInterface()
     std::cout << "releasing context" << std::endl;
 #endif
     itk::ReleaseContext();
+}
+
+//--------------------------------------------------------
+bool CLGPUInterface::IsGPUEnabled()
+{
+  itk::OpenCLDevice device;
+
+  if( !device.IsNull() )
+  {
+    return EXIT_FAILURE;
+  }
+
+  // Get all devices
+  std::list< itk::OpenCLDevice >       gpus;
+  const std::list< itk::OpenCLDevice > devices = itk::OpenCLDevice::GetAllDevices();
+  for( std::list< itk::OpenCLDevice >::const_iterator dev = devices.begin(); dev != devices.end(); ++dev )
+  {
+    if( ( ( *dev ).GetDeviceType() & itk::OpenCLDevice::GPU ) != 0 )
+    {
+      gpus.push_back( *dev );
+#ifndef NDEBUG
+      std::cout << ( *dev );
+#endif
+    }
+  }
+
+  if (gpus.size() > 0)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+//--------------------------------------------------------
+bool CLGPUInterface::Init()
+{
+  std::ostringstream o_string;
+  // Create and check OpenCL context
+  if( !itk::CreateContext() )
+  {
+    o_string << "Creating OpenGL Context failed ! Check your GPU! " << std::endl;
+    SetLastError(o_string.str().c_str());
+    return false;
+  }
+
+  // Check for the device 'double' support
+  itk::OpenCLContext::Pointer context = itk::OpenCLContext::GetInstance();
+  if( !context->GetDefaultDevice().HasDouble() )
+  {
+    o_string << "Your OpenCL device: " << context->GetDefaultDevice().GetName()
+              << ", does not support 'double' computations. Consider updating it." << std::endl;
+    SetLastError(o_string.str().c_str());
+
+    itk::ReleaseContext();
+    return false;
+  }
 }
 
 //--------------------------------------------------------
