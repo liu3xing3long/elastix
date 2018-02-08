@@ -143,11 +143,11 @@ else()
   )
   target_include_directories( elastix PUBLIC
   /usr/local/cuda/include 
-  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL
-  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL/Filters   
-  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL/ITKimprovements
-  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Common/OpenCL/Factories
-  /home/liuxinglong01/1HDD/work/SimpleElastix/build/Elastix/Components/Resamplers/OpenCLResampler
+  ../Common/OpenCL
+  ../Common/OpenCL/Filters   
+  ../Common/OpenCL/ITKimprovements
+  ../Common/OpenCL/Factories
+  ../Components/Resamplers/OpenCLResampler
   )
 endif()
 
