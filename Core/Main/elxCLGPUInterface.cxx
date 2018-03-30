@@ -3,12 +3,8 @@
 #include <iomanip> // setprecision, etc.
 #include <sstream>
 
-// GPU include files
-#include "itkGPUResampleImageFilter.h"
-#include "itkGPUBinaryDilateImageFilter.h"
-#include "itkGPUBinaryErodeImageFilter.h"
-#include "itkBinaryBallStructuringElement.h"
-
+#include "elxCLGPUInterface.h"
+#include "itkCLGPUInterfaceHelper.h"
 
 // ITK include files
 #include "itkImageFileReader.h"
@@ -18,15 +14,55 @@
 #include "itkOutputWindow.h"
 #include "itkTimeProbe.h"
 
-#include "elxCLGPUInterface.h"
-#include "itkCLGPUInterfaceHelper.h"
+// GPU include files
+#include "itkGPUResampleImageFilter.h"
+#include "itkGPUBinaryDilateImageFilter.h"
+#include "itkGPUBinaryErodeImageFilter.h"
+#include "itkBinaryBallStructuringElement.h"
+#include "itkGPUBinaryThresholdImageFilter.h"
+#include "itkGPUThresholdImageFilter.h"
+#include "itkGPUMeanImageFilter.h"
+#include "itkGPURecursiveGaussianImageFilter.h"
+#include "itkGPUDiscreteGaussianImageFilter.h"
+#include "itkGPUGradientAnisotropicDiffusionImageFilter.h"
 
 namespace elastix
 {
 
-//------------------------------------------------------------------------------
-GPUOutputImageType::Pointer CLGPUInterface::GPUMemoryTest(CPUInputImageType::Pointer itkImage)
+//--------------------------------------------------------
+template<typename TInput, typename TOutput> typename TOutput::Pointer 
+CraftGPUImage(typename TInput::Pointer itkImage)
 {
+  std::ostringstream o_string;
+  
+  typename TOutput::Pointer itkGPUImage = TOutput::New();
+  try
+  {
+    itkGPUImage->GraftITKImage( itkImage );
+    itkGPUImage->AllocateGPU();
+    itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+    itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+    itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+    // SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+    return NULL;
+  }
+
+  return itkGPUImage;
+}
+
+//------------------------------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::GPUMemoryTest(CPUInputImageType::Pointer itkImage)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+
   GPUInputImageType::Pointer itkGPUImage = GPUInputImageType::New();
 #ifndef NDEBUG
   std::cout << "begin" << std::endl;
@@ -65,8 +101,11 @@ void CLGPUInterface::PrintInfo()
 
 
 //------------------------------------------------------------------------------
-GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer itkImage, std::vector<float> outSpacing)
+GPUOutputImageType::Pointer 
+CLGPUInterface::Resample(CPUInputImageType::Pointer itkImage, std::vector<float> outSpacing)
 {
+  std::ostringstream o_string;
+  
   // basic typedefs
   typedef CPUInputImageType::SizeType::SizeValueType  SizeValueType;
   typedef typelist::MakeTypeList< float >::Type    OCLImageTypes;
@@ -83,6 +122,10 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
   typedef itk::Transform< ScalarType, InterCPUDIM, InterCPUDIM > TransformType;
   typedef itk::TranslationTransform< ScalarType, InterCPUDIM > TranslationTransformType;
   typedef itk::GPUTransformCopier< OCLImageTypes, OCLImageDims, TransformType, ScalarType > TransformCopierType;
+
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
 
   // CPU part
   InterpolatorType::Pointer cpuInterpolator;
@@ -135,22 +178,23 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
 #ifndef NDEBUG
   std::cout << "output params obtained." << std::endl;
 #endif
-  GPUInputImageType::Pointer itkGPUImage = GPUInputImageType::New();
-  try
-  {
-    itkGPUImage->GraftITKImage( itkImage );
-    itkGPUImage->AllocateGPU();
-    itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
-    itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
-    itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
-  }
-  catch( itk::ExceptionObject & e )
-  {
-    std::ostringstream o_string;
-    o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
-    SetLastError(o_string.str().c_str());
-    itk::ReleaseContext();
-  }
+  // GPUInputImageType::Pointer itkGPUImage = GPUInputImageType::New();
+  // try
+  // {
+  //   itkGPUImage->GraftITKImage( itkImage );
+  //   itkGPUImage->AllocateGPU();
+  //   itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+  //   itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+  //   itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  // }
+  // catch( itk::ExceptionObject & e )
+  // {
+  //   o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+  //   SetLastError(o_string.str().c_str());
+  //   itk::ReleaseContext();
+  //   return NULL;
+  // }
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
 
   // Create GPU copy for interpolator here
   InterpolateCopierType::GPUExplicitInterpolatorPointer gpuInterpolator;
@@ -183,7 +227,6 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
   }
   catch( itk::ExceptionObject & e )
   {
-    std::ostringstream o_string;
     o_string  << "Caught ITK exception during gpuFilter::New(): " << e << std::endl;
     SetLastError(o_string.str().c_str());
     itk::ReleaseContext();
@@ -214,7 +257,6 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
   }
   catch( itk::ExceptionObject & e )
   {
-    std::ostringstream o_string;
     o_string << "ERROR: " << e << std::endl;
     SetLastError(o_string.str().c_str());
     
@@ -226,29 +268,79 @@ GPUOutputImageType::Pointer CLGPUInterface::Resample(CPUInputImageType::Pointer 
 }
 
 //--------------------------------------------------------
-BinGPUOutputImageType::Pointer CLGPUInterface::BinaryDilate(BinCPUInputImageType::Pointer itkImage, int iRadius)
+GPUOutputImageType::Pointer 
+CLGPUInterface::Threshold(CPUInputImageType::Pointer itkImage, double lowerThreshold, double upperThreshold, double outsideValue)
+{
+  // some constants used and not directly assigned outside the function are placed here
+  std::ostringstream o_string;
+
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+  typedef itk::GPUThresholdImageFilter<GPUInputImageType> GPUFilterType;
+  GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+
+  try
+  {
+    // gpuFilter->SetUpper( upperThreshold );
+    // gpuFilter->SetLower( lowerThreshold );
+    gpuFilter->SetOutsideValue( outsideValue );
+    gpuFilter->ThresholdOutside(lowerThreshold, upperThreshold);
+    gpuFilter->SetInput( itkGPUImage );
+
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    
+    itk::ReleaseContext();
+    return NULL;
+  }
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+BinGPUOutputImageType::Pointer 
+CLGPUInterface::BinaryDilate(BinCPUInputImageType::Pointer itkImage, int iRadius)
 {
   // some constants used and not directly assigned outside the function are placed here
   int iForegroundVal = 1, iBackgroundVal = 0, iEnableBoundary = 0;
   std::ostringstream o_string;
 
-  // construct gpu image
-  BinGPUInputImageType::Pointer itkGPUImage = BinGPUInputImageType::New();
-  try
-  {
-    itkGPUImage->GraftITKImage( itkImage );
-    itkGPUImage->AllocateGPU();
-    itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
-    itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
-    itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
-  }
-  catch( itk::ExceptionObject & e )
-  {
-    std::ostringstream o_string;
-    o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
-    SetLastError(o_string.str().c_str());
-    itk::ReleaseContext();
-  }
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+
+  // // construct gpu image
+  // BinGPUInputImageType::Pointer itkGPUImage = BinGPUInputImageType::New();
+  // try
+  // {
+  //   itkGPUImage->GraftITKImage( itkImage );
+  //   itkGPUImage->AllocateGPU();
+  //   itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+  //   itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+  //   itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  // }
+  // catch( itk::ExceptionObject & e )
+  // {
+  //   o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+  //   SetLastError(o_string.str().c_str());
+  //   itk::ReleaseContext();
+  //   return NULL;
+  // }
+
+  BinGPUInputImageType::Pointer itkGPUImage = CraftGPUImage<BinCPUInputImageType, BinGPUInputImageType> (itkImage);
 
   // construct filter
   typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
@@ -334,7 +426,6 @@ BinGPUOutputImageType::Pointer CLGPUInterface::BinaryDilate(BinCPUInputImageType
   }
   catch( itk::ExceptionObject & e )
   {
-    std::ostringstream o_string;
     o_string << "ERROR: " << e << std::endl;
     SetLastError(o_string.str().c_str());
     
@@ -346,7 +437,8 @@ BinGPUOutputImageType::Pointer CLGPUInterface::BinaryDilate(BinCPUInputImageType
 }
 
 //--------------------------------------------------------
-BinGPUOutputImageType::Pointer CLGPUInterface::BinaryErode(BinCPUInputImageType::Pointer itkImage, int iRadius)
+BinGPUOutputImageType::Pointer 
+CLGPUInterface::BinaryErode(BinCPUInputImageType::Pointer itkImage, int iRadius)
 {
   // some constants used and not directly assigned outside the function are placed here
   // NOTE, we enable the iEnableBoundary here to make sure the eroded image not get smaller
@@ -354,23 +446,28 @@ BinGPUOutputImageType::Pointer CLGPUInterface::BinaryErode(BinCPUInputImageType:
   int iForegroundVal = 1, iBackgroundVal = 0, iEnableBoundary = 1;
   std::ostringstream o_string;
 
-  // construct gpu image
-  BinGPUInputImageType::Pointer itkGPUImage = BinGPUInputImageType::New();
-  try
-  {
-    itkGPUImage->GraftITKImage( itkImage );
-    itkGPUImage->AllocateGPU();
-    itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
-    itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
-    itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
-  }
-  catch( itk::ExceptionObject & e )
-  {
-    std::ostringstream o_string;
-    o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
-    SetLastError(o_string.str().c_str());
-    itk::ReleaseContext();
-  }
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  
+  // // construct gpu image
+  // BinGPUInputImageType::Pointer itkGPUImage = BinGPUInputImageType::New();
+  // try
+  // {
+  //   itkGPUImage->GraftITKImage( itkImage );
+  //   itkGPUImage->AllocateGPU();
+  //   itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+  //   itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+  //   itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  // }
+  // catch( itk::ExceptionObject & e )
+  // {
+  //   o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+  //   SetLastError(o_string.str().c_str());
+  //   itk::ReleaseContext();
+  //   return NULL;
+  // }
+  BinGPUInputImageType::Pointer itkGPUImage = CraftGPUImage<BinCPUInputImageType, BinGPUInputImageType> (itkImage);
 
   // construct filter
   typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
@@ -456,11 +553,333 @@ BinGPUOutputImageType::Pointer CLGPUInterface::BinaryErode(BinCPUInputImageType:
   }
   catch( itk::ExceptionObject & e )
   {
-    std::ostringstream o_string;
     o_string << "ERROR: " << e << std::endl;
     SetLastError(o_string.str().c_str());
     
     itk::ReleaseContext();
+    return NULL;
+  }
+
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+BinGPUOutputImageType::Pointer 
+CLGPUInterface::BinaryThreshold(CPUInputImageType::Pointer itkImage, 
+                                double lowerThreshold /* = 0.0 */, double upperThreshold /* = 255.0 */, 
+                                uint8_t insideValue /* = 1u */, uint8_t outsideValue /* = 0u */)
+{
+  // some constants used and not directly assigned outside the function are placed here
+  std::ostringstream o_string;
+
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  // // construct gpu image
+  // GPUInputImageType::Pointer itkGPUImage = GPUInputImageType::New();
+  // try
+  // {
+  //   itkGPUImage->GraftITKImage( itkImage );
+  //   itkGPUImage->AllocateGPU();
+  //   itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
+  //   itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
+  //   itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
+  // }
+  // catch( itk::ExceptionObject & e )
+  // {
+  //   o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
+  //   SetLastError(o_string.str().c_str());
+  //   itk::ReleaseContext();
+  //   return NULL;
+  // }
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+  typedef itk::GPUBinaryThresholdImageFilter<GPUInputImageType, BinGPUOutputImageType> GPUFilterType;
+  GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+
+  try
+  {
+    gpuFilter->SetOutsideValue( outsideValue );
+    gpuFilter->SetInsideValue( insideValue );
+    gpuFilter->SetUpperThreshold( upperThreshold );
+    gpuFilter->SetLowerThreshold( lowerThreshold );
+    gpuFilter->SetInput( itkGPUImage );
+
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    
+    itk::ReleaseContext();
+    return NULL;
+  }
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::Median(CPUInputImageType::Pointer itkImage, const std::vector<unsigned int>& radius)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+
+  std::ostringstream o_string;
+
+  o_string << "function not implemented..." << std::endl;
+  SetLastError(o_string.str().c_str());
+  return NULL;
+}
+
+//--------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::Mean(CPUInputImageType::Pointer itkImage, const std::vector<unsigned int>& radius)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  // some constants used and not directly assigned outside the function are placed here
+  std::ostringstream o_string;
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+  typedef itk::GPUMeanImageFilter< GPUInputImageType, GPUOutputImageType > GPUFilterType;
+  GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+
+  // setting down radiuses, should be transformed to itk size format
+  GPUFilterType::SizeType szRadius;
+  for (unsigned int idx = 0; idx < radius.size(); idx++){
+    szRadius[idx] = radius[idx];
+  }
+
+  try
+  {
+    gpuFilter->SetRadius( szRadius );
+    gpuFilter->SetInput( itkGPUImage );
+
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+    return NULL;
+  }
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::RecursiveGaussian(CPUInputImageType::Pointer itkImage, double sigma, bool normalizeAcrossScale, 
+                                 unsigned int order, unsigned int direction)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  // some constants used and not directly assigned outside the function are placed here
+  std::ostringstream o_string;
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+  typedef itk::GPURecursiveGaussianImageFilter< GPUInputImageType, GPUOutputImageType > GPUFilterType;
+  GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+  GPUFilterType::OrderEnumType gorder;
+  switch (order)
+  {
+    case 0:
+      gorder = GPUFilterType::ZeroOrder;
+      break;
+    case 1:
+      gorder = GPUFilterType::FirstOrder;
+      break;
+    case 2:
+      gorder = GPUFilterType::SecondOrder;
+      break;
+    default:
+      o_string << "giving unsupported order type, giving order " << order << " should be in range [0, 2]" << std::endl;
+      SetLastError(o_string.str().c_str());
+      return NULL;
+  }
+
+  try
+  {
+    gpuFilter->SetOrder( gorder );
+    gpuFilter->SetNormalizeAcrossScale( normalizeAcrossScale );
+    gpuFilter->SetDirection( direction );
+    gpuFilter->SetSigma( sigma );
+    gpuFilter->SetInput( itkGPUImage );
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+    return NULL;
+  }
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::DiscreteGaussian(CPUInputImageType::Pointer itkImage, double variance,
+                                unsigned int maximumKernelWidth, double maximumError, bool useImageSpacing)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+
+  // some constants used and not directly assigned outside the function are placed here
+  std::ostringstream o_string;
+
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+  typedef itk::GPUDiscreteGaussianImageFilter< GPUInputImageType, GPUOutputImageType > GPUFilterType;
+  GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+
+  try
+  {
+    gpuFilter->SetVariance( variance );
+    gpuFilter->SetMaximumError( maximumError );
+    gpuFilter->SetMaximumKernelWidth( maximumKernelWidth );
+    gpuFilter->SetUseImageSpacing( useImageSpacing );
+
+    // working towards the whole dim
+    gpuFilter->SetFilterDimensionality( GPUInputImageType::ImageDimension );
+
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+    return NULL;
+  }
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::DiscreteGaussian(CPUInputImageType::Pointer itkImage, const std::vector< double > &variance,
+                                unsigned int maximumKernelWidth, const std::vector< double > &maximumError,
+                                bool useImageSpacing)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  std::ostringstream o_string;
+
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+  typedef itk::GPUDiscreteGaussianImageFilter< GPUInputImageType, GPUOutputImageType > GPUFilterType;
+  GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+
+  // setting down radiuses, should be transformed to itk size format
+  GPUFilterType::ArrayType itkVar;
+  for (unsigned int idx = 0; idx < variance.size(); idx++){
+    itkVar[idx] = variance[idx];
+  }
+
+  GPUFilterType::ArrayType itkError;
+  for (unsigned int idx = 0; idx < maximumError.size(); idx++){
+    itkError[idx] = maximumError[idx];
+  }
+
+  try
+  {
+    gpuFilter->SetVariance( itkVar );
+    gpuFilter->SetMaximumError( itkError );
+    gpuFilter->SetMaximumKernelWidth( maximumKernelWidth );
+    gpuFilter->SetUseImageSpacing( useImageSpacing );
+
+    // working towards the whole dim
+    gpuFilter->SetFilterDimensionality( GPUInputImageType::ImageDimension );
+
+#ifndef NDEBUG
+    std::cout << "filter settled." << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+    std::cout << "filter updated." << std::endl;
+#endif  
+  }
+  catch( itk::ExceptionObject & e )
+  {
+    o_string << "ERROR: " << e << std::endl;
+    SetLastError(o_string.str().c_str());
+    itk::ReleaseContext();
+    return NULL;
+  }
+  return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+GPUOutputImageType::Pointer 
+CLGPUInterface::GradientAnisotropicDiffusion(CPUInputImageType::Pointer itkImage, double timeStep,
+                                            double conductanceParameter, unsigned int conductanceScalingUpdateInterval,
+                                            uint32_t numberOfIterations)
+{
+#ifndef NDEBUG
+  std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+  std::ostringstream o_string;
+
+  GPUInputImageType::Pointer itkGPUImage = CraftGPUImage<CPUInputImageType, GPUInputImageType> (itkImage);
+
+typedef itk::GPUGradientAnisotropicDiffusionImageFilter< GPUInputImageType, GPUOutputImageType > GPUFilterType;
+GPUFilterType::Pointer gpuFilter = GPUFilterType::New();
+
+  try
+  {
+    gpuFilter->SetInput( itkGPUImage );
+    gpuFilter->SetNumberOfIterations( numberOfIterations );
+    gpuFilter->SetTimeStep( timeStep );//125 );
+    gpuFilter->SetConductanceParameter( conductanceParameter );
+    gpuFilter->SetConductanceScalingUpdateInterval( conductanceScalingUpdateInterval );
+    gpuFilter->UseImageSpacingOn();
+#ifndef NDEBUG
+  std::cout << "filter settled" << std::endl;
+#endif
+    gpuFilter->Update();
+    gpuFilter->GetOutput()->UpdateBuffers(); // synchronization point
+#ifndef NDEBUG
+  std::cout << "filter updated" << std::endl;
+#endif
+  }
+  catch (itk::ExceptionObject& excp)
+  {
+    o_string << "Caught exception during setting params" << excp << std::endl;
     return NULL;
   }
 
@@ -540,6 +959,7 @@ bool CLGPUInterface::Init()
     return false;
   }
 }
+
 
 //--------------------------------------------------------
 void CLGPUInterface::SetLastError(const char* err)

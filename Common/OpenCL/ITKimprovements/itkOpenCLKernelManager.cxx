@@ -35,6 +35,7 @@
 #include "itkOpenCLKernelManager.h"
 #include "itkOpenCLContext.h"
 #include "itkOpenCLMacro.h"
+#include "itkOpenCLUtil.h"
 
 namespace itk
 {
@@ -227,6 +228,48 @@ OpenCLKernelManager::SetKernelArgWithImage(
 
   return true;
 }
+
+// //------------------------------------------------------------------------------
+// // 
+// template< typename TGPUImageDataManager >
+// bool 
+// OpenCLKernelManager::SetKernelArgWithImageAndBufferedRegion( int kernelIdx, cl_uint& argIdx, TGPUImageDataManager* manager )
+// {
+//     if(kernelIdx < 0 || kernelIdx >= (int)/* m_KernelContainer */m_Kernels.size() ) return false;
+
+//     cl_int errid;
+
+//     errid = clSetKernelArg(/* m_KernelContainer */m_Kernels[kernelIdx], argIdx, sizeof(cl_mem),
+//       manager->GetGPUBufferPointer() );
+//     OpenCLCheckError(errid, __FILE__, __LINE__, ITK_LOCATION);
+
+//     m_KernelArgumentReady[kernelIdx][argIdx].m_IsReady = true;
+//     m_KernelArgumentReady[kernelIdx][argIdx].m_GPUDataManager = manager;
+//     argIdx++;
+
+//     //this->SetKernelArg(kernelIdx, argIdx++, sizeof(int), &(TGPUImageDataManager::ImageDimension) );
+
+//     //the starting index for the buffered region
+//     errid = clSetKernelArg(/* m_KernelContainer */m_Kernels[kernelIdx], argIdx, sizeof(cl_mem),
+//       manager->GetGPUBufferedRegionIndex()->GetGPUBufferPointer() );
+//     OpenCLCheckError(errid, __FILE__, __LINE__, ITK_LOCATION);
+
+//     m_KernelArgumentReady[kernelIdx][argIdx].m_IsReady = true;
+//     m_KernelArgumentReady[kernelIdx][argIdx].m_GPUDataManager = manager->GetGPUBufferedRegionIndex();
+//     argIdx++;
+
+//     //the size for the buffered region
+//     errid = clSetKernelArg(/* m_KernelContainer */m_Kernels[kernelIdx], argIdx, sizeof(cl_mem),
+//       manager->GetGPUBufferedRegionSize()->GetGPUBufferPointer() );
+//     OpenCLCheckError(errid, __FILE__, __LINE__, ITK_LOCATION);
+
+//     m_KernelArgumentReady[kernelIdx][argIdx].m_IsReady = true;
+//     m_KernelArgumentReady[kernelIdx][argIdx].m_GPUDataManager = manager->GetGPUBufferedRegionSize();
+//     argIdx++;
+
+//     return true;
+// }
+
 
 
 //------------------------------------------------------------------------------

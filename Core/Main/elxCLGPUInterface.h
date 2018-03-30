@@ -3,7 +3,7 @@
 
 #include "itkImageSource.h"
 
-#include "elxElastixMain.h"
+// #include "elxElastixMain.h"
 #include "elxParameterObject.h"
 #include "elxPixelType.h"
 #include "itkLightObject.h"
@@ -40,36 +40,47 @@ typedef itk::GPUImage< InterBinGPUPixType, InterGPUDIM >  BinGPUOutputImageType;
 /////////////////////////////////////
 class ELASTIXLIB_API CLGPUInterface
 {
-    public:
-        CLGPUInterface();
-        ~CLGPUInterface();
+public:
+    CLGPUInterface();
+    ~CLGPUInterface();
 
-    public:
-        virtual void PrintInfo();
-        GPUOutputImageType::Pointer GPUMemoryTest(CPUInputImageType::Pointer input);
-    
-    public:
-        bool IsGPUEnabled( void );
+public:
+    virtual void PrintInfo();
+    GPUOutputImageType::Pointer GPUMemoryTest(CPUInputImageType::Pointer input);
 
-    public:
-        // resample floating images
-        GPUOutputImageType::Pointer Resample(CPUInputImageType::Pointer input,  std::vector<float> outSpacing);
-        
-        // morphing on binary images
-        BinGPUOutputImageType::Pointer BinaryDilate(BinCPUInputImageType::Pointer input, int iRadius);
-        BinGPUOutputImageType::Pointer BinaryErode(BinCPUInputImageType::Pointer input, int iRadius);
+public:
+    bool IsGPUEnabled( void );
 
-    public:
-        void SetLastError(const char* err);
-        const char* GetLastError(); 
+public:
+    // resample floating images
+    GPUOutputImageType::Pointer Resample(CPUInputImageType::Pointer input, std::vector<float> outSpacing);
+    GPUOutputImageType::Pointer Threshold(CPUInputImageType::Pointer input, double lowerThreshold, double upperThreshold, double outsideValue);
 
-    private:
-        // should call Init immediately after creating the interface before using any 
-        // real working methods
-         bool Init( void );
+    // morphing on binary images
+    BinGPUOutputImageType::Pointer BinaryDilate(BinCPUInputImageType::Pointer input, int iRadius);
+    BinGPUOutputImageType::Pointer BinaryErode(BinCPUInputImageType::Pointer input, int iRadius);
+    BinGPUOutputImageType::Pointer BinaryThreshold(CPUInputImageType::Pointer input, double lowerThreshold, double upperThreshold, uint8_t insideValue, uint8_t outsideValue);
 
-    private:
-        char _last_error[4096];
+    // filtering functions
+    GPUOutputImageType::Pointer Median(CPUInputImageType::Pointer inputImage, const std::vector<unsigned int>& radius);
+    GPUOutputImageType::Pointer Mean(CPUInputImageType::Pointer inputImage, const std::vector<unsigned int>& radius);
+    GPUOutputImageType::Pointer RecursiveGaussian(CPUInputImageType::Pointer inputImage, double sigma, bool normalizeAcrossScale, unsigned int order, unsigned int direction);
+    GPUOutputImageType::Pointer DiscreteGaussian(CPUInputImageType::Pointer inputImage, double variance, unsigned int maximumKernelWidth, double maximumError, bool useImageSpacing);
+    GPUOutputImageType::Pointer DiscreteGaussian(CPUInputImageType::Pointer inputImage, const std::vector< double > &variance, unsigned int maximumKernelWidth, const std::vector< double > &maximumError, bool useImageSpacing);
+    GPUOutputImageType::Pointer GradientAnisotropicDiffusion(CPUInputImageType::Pointer inputImage, double timeStep, double conductanceParameter, unsigned int conductanceScalingUpdateInterval, uint32_t numberOfIterations);
+
+
+public:
+    void SetLastError(const char* err);
+    const char* GetLastError();
+
+private:
+    // should call Init immediately after creating the interface before using any
+    // real working methods
+    bool Init( void );
+
+private:
+    char _last_error[4096];
 };
 
 }

@@ -132,6 +132,51 @@ public:
     const std::size_t argSize, const void * argVal );
 
   bool SetKernelArgWithImage( const std::size_t kernelId, cl_uint argId, const GPUDataManager::Pointer manager );
+  
+  /** Pass to GPU both the pixel buffer and the buffered region. */
+  //template< typename TGPUImageDataManager >
+  //bool SetKernelArgWithImageAndBufferedRegion(int kernelIdx, cl_uint &argIdx, typename TGPUImageDataManager::Pointer manager);
+  template< typename TGPUImageDataManager >
+  bool SetKernelArgWithImageAndBufferedRegion( int kernelIdx, cl_uint& argIdx, TGPUImageDataManager* manager )
+  {
+    // if(kernelIdx < 0 || kernelIdx >= (int)/* m_KernelContainer */m_Kernels.size() ) return false;
+    if( kernelIdx < 0 || kernelIdx >= this->m_Kernels.size() ) { return false; }
+
+    cl_int errid;
+
+    errid = clSetKernelArg( this->GetKernel( kernelIdx ).GetKernelId(), argIdx, sizeof(cl_mem),
+      manager->GetGPUBufferPointer() );
+    // OpenCLCheckError(errid, __FILE__, __LINE__, ITK_LOCATION);
+    this->m_Context->ReportError( errid, __FILE__, __LINE__, ITK_LOCATION );
+
+    m_KernelArgumentReady[kernelIdx][argIdx].m_IsReady = true;
+    m_KernelArgumentReady[kernelIdx][argIdx].m_GPUDataManager = manager;
+    argIdx++;
+
+    //this->SetKernelArg(kernelIdx, argIdx++, sizeof(int), &(TGPUImageDataManager::ImageDimension) );
+
+    //the starting index for the buffered region
+    errid = clSetKernelArg(/* m_KernelContainer */this->GetKernel( kernelIdx ).GetKernelId(), argIdx, sizeof(cl_mem),
+      manager->GetGPUBufferedRegionIndex()->GetGPUBufferPointer() );
+    // OpenCLCheckError(errid, __FILE__, __LINE__, ITK_LOCATION);
+    this->m_Context->ReportError( errid, __FILE__, __LINE__, ITK_LOCATION );
+
+    m_KernelArgumentReady[kernelIdx][argIdx].m_IsReady = true;
+    m_KernelArgumentReady[kernelIdx][argIdx].m_GPUDataManager = manager->GetGPUBufferedRegionIndex();
+    argIdx++;
+
+    //the size for the buffered region
+    errid = clSetKernelArg(/* m_KernelContainer */this->GetKernel( kernelIdx ).GetKernelId(), argIdx, sizeof(cl_mem),
+      manager->GetGPUBufferedRegionSize()->GetGPUBufferPointer() );
+    // OpenCLCheckError(errid, __FILE__, __LINE__, ITK_LOCATION);
+    this->m_Context->ReportError( errid, __FILE__, __LINE__, ITK_LOCATION );
+
+    m_KernelArgumentReady[kernelIdx][argIdx].m_IsReady = true;
+    m_KernelArgumentReady[kernelIdx][argIdx].m_GPUDataManager = manager->GetGPUBufferedRegionSize();
+    argIdx++;
+
+    return true;
+  }
 
 protected:
 

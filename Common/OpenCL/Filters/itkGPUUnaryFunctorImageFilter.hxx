@@ -113,8 +113,10 @@ GPUUnaryFunctorImageFilter< TInputImage, TOutputImage, TFunction, TParentImageFi
   }
 
   // launch kernel
-  this->m_GPUKernelManager->LaunchKernel( m_UnaryFunctorImageFilterGPUKernelHandle,
+  OpenCLEvent event = this->m_GPUKernelManager->LaunchKernel( m_UnaryFunctorImageFilterGPUKernelHandle,
     OpenCLSize( globalSize ), OpenCLSize( localSize ) );
+
+  event.WaitForFinished();
 }
 
 

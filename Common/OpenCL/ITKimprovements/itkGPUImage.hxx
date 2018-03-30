@@ -269,7 +269,6 @@ GPUImage< TPixel, VImageDimension >
   return static_cast< GPUImageDataSuperclassPointer >( m_DataManager.GetPointer() );
 }
 
-
 //------------------------------------------------------------------------------
 template< typename TPixel, unsigned int VImageDimension >
 void
