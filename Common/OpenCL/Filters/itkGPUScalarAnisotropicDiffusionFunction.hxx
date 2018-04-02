@@ -28,7 +28,7 @@
 #include "itkOpenCLKernelManager.h"
 #include "itkOpenCLKernelToImageBridge.h"
 
-#define GPU_DIFF_DEBUG
+//#define GPU_DIFF_DEBUG
 
 
 namespace itk
@@ -109,19 +109,23 @@ GPUScalarAnisotropicDiffusionFunction< TImage >
   std::cout << "--------------- GPUScalarAnisotropicDiffusionFunction -----------------" << std::endl;
   std::cout << "image size " << std::endl;
   for(int i=0; i<ImageDim; i++)
-    std::cout << imgSize[i] << "";
+    std::cout << imgSize[i] << " ";
+  std::cout << std::endl;
 
   std::cout << "image scale " << std::endl;
   for(int i=0; i<ImageDim; i++)
-    std::cout << imgScale[i] << "";
+    std::cout << imgScale[i] << " ";
+  std::cout << std::endl;
 
   std::cout << "localSize " << std::endl;
   for(int i=0; i<ImageDim; i++)
-    std::cout << localSize[i] << "";
+    std::cout << localSize[i] << " ";
+  std::cout << std::endl;
 
   std::cout << "global size " << std::endl;
   for(int i=0; i<ImageDim; i++)
-    std::cout << globalSize[i] << "";
+    std::cout << globalSize[i] << " ";
+  std::cout << std::endl;
 
   std::cout << "buff size " << bufferSize << std::endl;
   std::cout << "num pixels " << numPixel << std::endl;
@@ -187,8 +191,11 @@ GPUScalarAnisotropicDiffusionFunction< TImage >
 #ifdef GPU_DIFF_DEBUG
   std::cout << "launching kernel" << std::endl;
 #endif
+
   // launch kernel
-  kernelManager->LaunchKernel(kernelHandle, ImageDim, globalSize, localSize );
+//  kernelManager->LaunchKernel(kernelHandle, ImageDim, globalSize, localSize );
+  kernelManager->LaunchKernel(kernelHandle, OpenCLSize(globalSize), OpenCLSize(localSize) );
+
 
 #ifdef GPU_DIFF_DEBUG
   std::cout << "kernel done, reading back... " << std::endl;

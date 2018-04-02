@@ -35,51 +35,56 @@ namespace itk
  * \ingroup GPUCommon
  */
 template< typename TInputImage, typename TCoordRep = float, typename TParentInterpolateImageFunction
-                                                   = InterpolateImageFunction< TInputImage, TCoordRep > >
-class ITK_EXPORT GPUInterpolateImageFunction :
-  public         TParentInterpolateImageFunction, public GPUInterpolatorBase
+= InterpolateImageFunction< TInputImage, TCoordRep > >
+class ITK_EXPORT GPUInterpolateImageFunction:
+        public TParentInterpolateImageFunction, public GPUInterpolatorBase
 {
 public:
-
-  /** Standard class typedefs. */
-  typedef GPUInterpolateImageFunction     Self;
-  typedef TParentInterpolateImageFunction CPUSuperclass;
-  typedef GPUInterpolatorBase             GPUSuperclass;
-  typedef SmartPointer< Self >            Pointer;
-  typedef SmartPointer< const Self >      ConstPointer;
-
-  /** Run-time type information (and related methods). */
-  itkTypeMacro( GPUInterpolateImageFunction, TParentInterpolateImageFunction );
-
-  /** ImageDimension constants */
-  itkStaticConstMacro( InputImageDimension, unsigned int,
-    TInputImage::ImageDimension );
-
-  /** Superclass typedef support. */
-  typedef typename CPUSuperclass::InputImageType      InputImageType;
-  typedef typename CPUSuperclass::ContinuousIndexType ContinuousIndexType;
-  typedef typename CPUSuperclass::CoordRepType        CoordRepType;
+    
+    /** Standard class typedefs. */
+    typedef GPUInterpolateImageFunction Self;
+    typedef TParentInterpolateImageFunction CPUSuperclass;
+    typedef GPUInterpolatorBase GPUSuperclass;
+    typedef SmartPointer< Self > Pointer;
+    typedef SmartPointer< const Self > ConstPointer;
+    
+    /** Run-time type information (and related methods). */
+    itkTypeMacro( GPUInterpolateImageFunction, TParentInterpolateImageFunction );
+    
+    /** ImageDimension constants */
+    itkStaticConstMacro( InputImageDimension, unsigned int, TInputImage::ImageDimension );
+    
+    /** Superclass typedef support. */
+    typedef typename CPUSuperclass::InputImageType InputImageType;
+    typedef typename CPUSuperclass::ContinuousIndexType ContinuousIndexType;
+    typedef typename CPUSuperclass::CoordRepType CoordRepType;
 
 protected:
-
-  GPUInterpolateImageFunction();
-  ~GPUInterpolateImageFunction() {}
-  virtual void PrintSelf( std::ostream & os, Indent indent ) const ITK_OVERRIDE;
-
-  /** Returns data manager that stores all settings for the transform. */
-  virtual GPUDataManager::Pointer GetParametersDataManager( void ) const ITK_OVERRIDE;
+    
+    GPUInterpolateImageFunction();
+    
+    ~GPUInterpolateImageFunction()
+    {
+    }
+    
+    virtual void PrintSelf( std::ostream &os, Indent indent ) const ITK_OVERRIDE;
+    
+    /** Returns data manager that stores all settings for the transform. */
+    virtual GPUDataManager::Pointer GetParametersDataManager( void ) const ITK_OVERRIDE;
 
 private:
-
-  GPUInterpolateImageFunction( const Self & ); // purposely not implemented
-  void operator=( const Self & );              // purposely not implemented
-
+    
+    GPUInterpolateImageFunction( const Self & ); // purposely not implemented
+    void operator =( const Self & );              // purposely not implemented
+    
 };
 
 } // end namespace itk
 
 #ifndef ITK_MANUAL_INSTANTIATION
+
 #include "itkGPUInterpolateImageFunction.hxx"
+
 #endif
 
 #endif /* __itkGPUInterpolateImageFunction_h */

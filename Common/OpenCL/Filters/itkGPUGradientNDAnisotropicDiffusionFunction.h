@@ -53,85 +53,86 @@ namespace itk
  */
 
 /** Create a helper GPU Kernel class for GPUGradientNDAnisotropicDiffusionFunction */
-itkGPUKernelClassMacro(GPUGradientNDAnisotropicDiffusionFunctionKernel);
+itkGPUKernelClassMacro( GPUGradientNDAnisotropicDiffusionFunctionKernel );
 
 template< typename TImage >
-class ITK_TEMPLATE_EXPORT GPUGradientNDAnisotropicDiffusionFunction :
-  public GPUScalarAnisotropicDiffusionFunction< TImage >
+class ITK_TEMPLATE_EXPORT GPUGradientNDAnisotropicDiffusionFunction:
+        public GPUScalarAnisotropicDiffusionFunction< TImage >
 {
 public:
-  /** Standard class typedefs. */
-  typedef GPUGradientNDAnisotropicDiffusionFunction       Self;
-  typedef GPUScalarAnisotropicDiffusionFunction< TImage > Superclass;
-  typedef SmartPointer< Self >                            Pointer;
-  typedef SmartPointer< const Self >                      ConstPointer;
-
-  /** Method for creation through the object factory. */
-  itkNewMacro(Self);
-
-  /** Run-time type information (and related methods) */
-  itkTypeMacro(GPUGradientNDAnisotropicDiffusionFunction,
-               GPUScalarAnisotropicDiffusionFunction);
-
-  /** Inherit some parameters from the superclass type. */
-  typedef typename Superclass::ImageType        ImageType;
-  typedef typename Superclass::PixelType        PixelType;
-  typedef typename Superclass::PixelRealType    PixelRealType;
-  typedef typename Superclass::TimeStepType     TimeStepType;
-  typedef typename Superclass::RadiusType       RadiusType;
-  typedef typename Superclass::NeighborhoodType NeighborhoodType;
-  typedef typename Superclass::FloatOffsetType  FloatOffsetType;
-
-  typedef SizeValueType NeighborhoodSizeValueType;
-
-  /** Inherit some parameters from the superclass type. */
-  itkStaticConstMacro(ImageDimension, unsigned int, Superclass::ImageDimension);
-
-  /** Get OpenCL Kernel source as a string, creates a GetOpenCLSource method */
-  itkGetOpenCLSourceFromKernelMacro(GPUGradientNDAnisotropicDiffusionFunctionKernel);
-
-  /** Compute the equation value. */
-  virtual void GPUComputeUpdate( const typename TImage::Pointer output, typename TImage::Pointer buffer,
-                                 void *globalData ) ITK_OVERRIDE;
-
-  /** This method is called prior to each iteration of the solver. */
-  virtual void InitializeIteration() ITK_OVERRIDE
-  {
-    m_K = static_cast< PixelType >( this->GetAverageGradientMagnitudeSquared()
-                                    * this->GetConductanceParameter() * this->GetConductanceParameter() * -2.0f );
-  }
+    /** Standard class typedefs. */
+    typedef GPUGradientNDAnisotropicDiffusionFunction Self;
+    typedef GPUScalarAnisotropicDiffusionFunction< TImage > Superclass;
+    typedef SmartPointer< Self > Pointer;
+    typedef SmartPointer< const Self > ConstPointer;
+    
+    /** Method for creation through the object factory. */
+    itkNewMacro( Self );
+    
+    /** Run-time type information (and related methods) */
+    itkTypeMacro( GPUGradientNDAnisotropicDiffusionFunction, GPUScalarAnisotropicDiffusionFunction );
+    
+    /** Inherit some parameters from the superclass type. */
+    typedef typename Superclass::ImageType ImageType;
+    typedef typename Superclass::PixelType PixelType;
+    typedef typename Superclass::PixelRealType PixelRealType;
+    typedef typename Superclass::TimeStepType TimeStepType;
+    typedef typename Superclass::RadiusType RadiusType;
+    typedef typename Superclass::NeighborhoodType NeighborhoodType;
+    typedef typename Superclass::FloatOffsetType FloatOffsetType;
+    
+    typedef SizeValueType NeighborhoodSizeValueType;
+    
+    /** Inherit some parameters from the superclass type. */
+    itkStaticConstMacro( ImageDimension, unsigned int, Superclass::ImageDimension );
+    
+    /** Get OpenCL Kernel source as a string, creates a GetOpenCLSource method */
+    itkGetOpenCLSourceFromKernelMacro( GPUGradientNDAnisotropicDiffusionFunctionKernel );
+    
+    /** Compute the equation value. */
+    virtual void GPUComputeUpdate( const typename TImage::Pointer output, typename TImage::Pointer buffer, void *globalData ) ITK_OVERRIDE;
+    
+    /** This method is called prior to each iteration of the solver. */
+    virtual void InitializeIteration() ITK_OVERRIDE
+    {
+        m_K = static_cast< PixelType >( this->GetAverageGradientMagnitudeSquared() * this->GetConductanceParameter() *
+                                        this->GetConductanceParameter() * -2.0f );
+    }
 
 protected:
-  GPUGradientNDAnisotropicDiffusionFunction();
-  ~GPUGradientNDAnisotropicDiffusionFunction() {
-  }
+    GPUGradientNDAnisotropicDiffusionFunction();
+    
+    ~GPUGradientNDAnisotropicDiffusionFunction()
+    {
+    }
+    
+    /** Inner product function. */
+    NeighborhoodInnerProduct< ImageType > m_InnerProduct;
+    
+    /** Slices for the ND neighborhood. */
+    std::slice x_slice[ImageDimension];
+    std::slice xa_slice[ImageDimension][ImageDimension];
+    std::slice xd_slice[ImageDimension][ImageDimension];
+    
+    /** Derivative operator. */
+    DerivativeOperator< PixelType, itkGetStaticConstMacro( ImageDimension ) > dx_op;
+    
+    /** Modified global average gradient magnitude term. */
+    PixelType m_K;
+    
+    NeighborhoodSizeValueType m_Center;
+    NeighborhoodSizeValueType m_Stride[ImageDimension];
+    
+    static double m_MIN_NORM;
 
-  /** Inner product function. */
-  NeighborhoodInnerProduct< ImageType > m_InnerProduct;
-
-  /** Slices for the ND neighborhood. */
-  std::slice x_slice[ImageDimension];
-  std::slice xa_slice[ImageDimension][ImageDimension];
-  std::slice xd_slice[ImageDimension][ImageDimension];
-
-  /** Derivative operator. */
-  DerivativeOperator< PixelType, itkGetStaticConstMacro(ImageDimension) > dx_op;
-
-  /** Modified global average gradient magnitude term. */
-  PixelType m_K;
-
-  NeighborhoodSizeValueType m_Center;
-  NeighborhoodSizeValueType m_Stride[ImageDimension];
-
-  static double m_MIN_NORM;
-
-private:
-  ITK_DISALLOW_COPY_AND_ASSIGN(GPUGradientNDAnisotropicDiffusionFunction);
+private: ITK_DISALLOW_COPY_AND_ASSIGN( GPUGradientNDAnisotropicDiffusionFunction );
 };
 } // end namespace itk
 
 #ifndef ITK_MANUAL_INSTANTIATION
+
 #include "itkGPUGradientNDAnisotropicDiffusionFunction.hxx"
+
 #endif
 
 #endif

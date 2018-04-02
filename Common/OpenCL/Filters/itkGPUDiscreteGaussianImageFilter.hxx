@@ -25,103 +25,118 @@
 #include "itkProgressAccumulator.h"
 #include "itkStreamingImageFilter.h"
 
+//#define FILTER_DEBUG
+
+
 namespace itk
 {
 template< typename TInputImage, typename TOutputImage >
-GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >
-::GPUDiscreteGaussianImageFilter()
+GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >::GPUDiscreteGaussianImageFilter()
 {
-  unsigned int filterDimensionality = this->GetFilterDimensionality();
-
-  if ( filterDimensionality > ImageDimension )
+    unsigned int filterDimensionality = this->GetFilterDimensionality();
+    
+    if ( filterDimensionality > ImageDimension )
     {
-    filterDimensionality = ImageDimension;
+        filterDimensionality = ImageDimension;
     }
-
-  if( filterDimensionality == 1 )
+    
+    if ( filterDimensionality == 1 )
     {
-    m_SingleFilter = SingleFilterType::New();
+        m_SingleFilter = SingleFilterType::New();
     }
-  else if( filterDimensionality == 2 )
+    else if ( filterDimensionality == 2 )
     {
-    m_FirstFilter = FirstFilterType::New();
-    m_LastFilter  = LastFilterType::New();
+        m_FirstFilter = FirstFilterType::New();
+        m_LastFilter = LastFilterType::New();
     }
-  else if( filterDimensionality > 2 )
+    else if ( filterDimensionality > 2 )
     {
-    m_FirstFilter = FirstFilterType::New();
-    m_LastFilter = LastFilterType::New();
-    for (unsigned int i = 1; i < filterDimensionality - 1; ++i )
-      {
-      typename IntermediateFilterType::Pointer f = IntermediateFilterType::New();
-      m_IntermediateFilters.push_back( f );
-      }
+        m_FirstFilter = FirstFilterType::New();
+        m_LastFilter = LastFilterType::New();
+        for ( unsigned int i = 1; i < filterDimensionality - 1; ++i )
+        {
+            typename IntermediateFilterType::Pointer f = IntermediateFilterType::New();
+            m_IntermediateFilters.push_back( f );
+        }
     }
-  else
+    else
     {
-    itkExceptionMacro("GPUDiscreteGaussianImageFilter only supports n-Dimensional image.");
+        itkExceptionMacro( "GPUDiscreteGaussianImageFilter only supports n-Dimensional image." );
     }
 }
 
 template< typename TInputImage, typename TOutputImage >
 void
-GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >
-::GenerateInputRequestedRegion()
-  {
-  // call the superclass' implementation of this method. this should
-  // copy the output requested region to the input requested region
-  CPUSuperclass::GenerateInputRequestedRegion();
-  }
+GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >::GenerateInputRequestedRegion()
+{
+    // call the superclass' implementation of this method. this should
+    // copy the output requested region to the input requested region
+    CPUSuperclass::GenerateInputRequestedRegion();
+}
 
 template< typename TInputImage, typename TOutputImage >
 void
-GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >
-::GPUGenerateData()
+GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >::GPUGenerateData()
 {
-  typedef typename itk::GPUTraits< TInputImage >::Type  GPUInputImage;
-  typedef typename itk::GPUTraits< TOutputImage >::Type GPUOutputImage;
+#ifdef FILTER_DEBUG
+    char debug_msg[4096];
+    sprintf(debug_msg, "%s\n", "GPUDiscreteGaussianImageFilter::GPUGenerateData begin");
+    std::cout << debug_msg;
+#endif
+    
+    
+    typedef typename itk::GPUTraits< TInputImage >::Type GPUInputImage;
+    typedef typename itk::GPUTraits< TOutputImage >::Type GPUOutputImage;
+    typename GPUOutputImage::Pointer output = dynamic_cast< GPUOutputImage * >( this->GetOutput()); //this->ProcessObject::GetOutput(0)
+    // );
+    
+    //typename TOutputImage::Pointer output = this->GetOutput();
 
-  typename GPUOutputImage::Pointer output =  dynamic_cast< GPUOutputImage * >( this->GetOutput() ); //this->ProcessObject::GetOutput(0)
-                                                                                                    // );
+#ifdef FILTER_DEBUG
+    sprintf(debug_msg, "%s\n", "allocating output");
+    std::cout << debug_msg;
+#endif
+    output->SetBufferedRegion( output->GetRequestedRegion() );
+    output->Allocate();
 
-  //typename TOutputImage::Pointer output = this->GetOutput();
-
-  output->SetBufferedRegion( output->GetRequestedRegion() );
-  output->Allocate();
-
-  // Create an internal image to protect the input image's metadata
-  // (e.g. RequestedRegion). The StreamingImageFilter changes the
-  // requested region as part of its normal processing.
-  //typename TInputImage::Pointer localInput = TInputImage::New();
-  typename GPUInputImage::Pointer localInput = GPUInputImage::New();
-  localInput->Graft( this->GetInput() );
-
-  // Determine the dimensionality to filter
-  unsigned int filterDimensionality = this->GetFilterDimensionality();
-  if ( filterDimensionality > ImageDimension )
+#ifdef FILTER_DEBUG
+    sprintf(debug_msg, "%s\n", "grafting local input");
+    std::cout << debug_msg;
+#endif
+    // Create an internal image to protect the input image's metadata
+    // (e.g. RequestedRegion). The StreamingImageFilter changes the
+    // requested region as part of its normal processing.
+    //typename TInputImage::Pointer localInput = TInputImage::New();
+    typename GPUInputImage::Pointer localInput = GPUInputImage::New();
+    localInput->Graft( this->GetInput() );
+    
+    // Determine the dimensionality to filter
+    unsigned int filterDimensionality = this->GetFilterDimensionality();
+    if ( filterDimensionality > ImageDimension )
     {
-    filterDimensionality = ImageDimension;
+        filterDimensionality = ImageDimension;
+    }
+    
+    if ( filterDimensionality == 0 )
+    {
+        // no smoothing, copy input to output
+        ImageRegionConstIterator< InputImageType > inIt( localInput, this->GetOutput()->GetRequestedRegion() );
+        ImageRegionIterator< OutputImageType > outIt( output, this->GetOutput()->GetRequestedRegion() );
+        
+        while ( !inIt.IsAtEnd() )
+        {
+            outIt.Set( static_cast< OutputPixelType >( inIt.Get()) );
+            ++inIt;
+            ++outIt;
+        }
+        return;
     }
 
-  if ( filterDimensionality == 0 )
-    {
-    // no smoothing, copy input to output
-    ImageRegionConstIterator< InputImageType > inIt(
-      localInput,
-      this->GetOutput()->GetRequestedRegion() );
+#ifdef FILTER_DEBUG
+    sprintf(debug_msg, "%s: %d\n", "filterDimensionality", filterDimensionality);
+    std::cout << debug_msg;
+#endif
 
-    ImageRegionIterator< OutputImageType > outIt(
-      output,
-      this->GetOutput()->GetRequestedRegion() );
-
-    while ( !inIt.IsAtEnd() )
-      {
-      outIt.Set( static_cast< OutputPixelType >( inIt.Get() ) );
-      ++inIt;
-      ++outIt;
-      }
-    return;
-    }
 /*
   // Type of the pixel to use for intermediate results
   typedef typename NumericTraits< OutputPixelType >::RealType RealOutputPixelType;
@@ -152,156 +167,194 @@ GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >
   typedef typename LastFilterType::Pointer         LastFilterPointer;
   typedef typename SingleFilterType::Pointer       SingleFilterPointer;
 */
-
-  // Create a series of operators
-  typedef GaussianOperator< RealOutputPixelValueType, ImageDimension > OperatorType;
-
-  std::vector< OperatorType > oper;
-  oper.resize(filterDimensionality);
-
-  // Create a process accumulator for tracking the progress of minipipeline
-  //ProgressAccumulator::Pointer progress = ProgressAccumulator::New();
-  //progress->SetMiniPipelineFilter(this);
-
-  // Set up the operators
-  unsigned int i;
-  for ( i = 0; i < filterDimensionality; ++i )
+    
+    // Create a series of operators
+    typedef GaussianOperator< RealOutputPixelValueType, ImageDimension > OperatorType;
+    std::vector< OperatorType > oper;
+    oper.resize( filterDimensionality );
+    
+    // Create a process accumulator for tracking the progress of minipipeline
+    //ProgressAccumulator::Pointer progress = ProgressAccumulator::New();
+    //progress->SetMiniPipelineFilter(this);
+    
+    // Set up the operators
+    unsigned int i;
+    for ( i = 0; i < filterDimensionality; ++i )
     {
-    // we reverse the direction to minimize computation while, because
-    // the largest dimension will be split slice wise for streaming
-    unsigned int reverse_i = filterDimensionality - i - 1;
-
-    // Set up the operator for this dimension
-    oper[reverse_i].SetDirection(i);
-    if ( this->GetUseImageSpacing() == true )
-      {
-      if ( localInput->GetSpacing()[i] == 0.0 )
+        // we reverse the direction to minimize computation while, because
+        // the largest dimension will be split slice wise for streaming
+        unsigned int reverse_i = filterDimensionality - i - 1;
+        
+        // Set up the operator for this dimension
+        oper[reverse_i].SetDirection( i );
+        if ( this->GetUseImageSpacing() == true )
         {
-        itkExceptionMacro(<< "Pixel spacing cannot be zero");
+            if ( localInput->GetSpacing()[i] == 0.0 )
+            {
+                itkExceptionMacro( << "Pixel spacing cannot be zero" );
+            }
+            else
+            {
+                // convert the variance from physical units to pixels
+                double s = localInput->GetSpacing()[i];
+                s = s * s;
+                oper[reverse_i].SetVariance( (this->GetVariance())[i] / s );
+            }
         }
-      else
-        {
-        // convert the variance from physical units to pixels
-        double s = localInput->GetSpacing()[i];
-        s = s * s;
-        oper[reverse_i].SetVariance( (this->GetVariance() )[i] / s);
-        }
-      }
-    else
-      {
-      oper[reverse_i].SetVariance( (this->GetVariance() )[i]);
-      }
-
-    oper[reverse_i].SetMaximumKernelWidth(this->GetMaximumKernelWidth() );
-    oper[reverse_i].SetMaximumError( (this->GetMaximumError() )[i]);
-    oper[reverse_i].CreateDirectional();
-    }
-
-  // Create a chain of filters
-  //
-  //
-
-  if ( filterDimensionality == 1 )
-    {
-    // Use just a single filter
-    m_SingleFilter->SetOperator(oper[0]);
-    m_SingleFilter->SetInput(localInput);
-    //progress->RegisterInternalFilter(m_SingleFilter, 1.0f /
-    // this->GetFilterDimensionality());
-
-    // Graft this filters output onto the mini-pipeline so the mini-pipeline
-    // has the correct region ivars and will write to this filters bulk data
-    // output.
-    m_SingleFilter->GraftOutput(output);
-
-    // Update the filter
-    m_SingleFilter->Update();
-
-    // Graft the last output of the mini-pipeline onto this filters output so
-    // the final output has the correct region ivars and a handle to the final
-    // bulk data
-    this->GraftOutput( m_SingleFilter->GetOutput() ); //output);
-    }
-  else
-    {
-    // Setup a full mini-pipeline and stream the data through the
-    // pipeline.
-    //unsigned int numberOfStages = filterDimensionality *
-    // this->GetInternalNumberOfStreamDivisions() + 1;
-
-    // First filter convolves and changes type from input type to real type
-    m_FirstFilter->SetOperator(oper[0]);
-    m_FirstFilter->ReleaseDataFlagOn();
-    m_FirstFilter->SetInput(localInput);
-    //progress->RegisterInternalFilter(m_FirstFilter, 1.0f / numberOfStages);
-
-    // Middle filters convolves from real to real
-    if ( filterDimensionality > 2 )
-      {
-      for ( i = 1; i < filterDimensionality - 1; ++i )
-        {
-        typename IntermediateFilterType::Pointer f = m_IntermediateFilters[i-1];
-        f->SetOperator(oper[i]);
-        f->ReleaseDataFlagOn();
-        //progress->RegisterInternalFilter(f, 1.0f / numberOfStages);
-
-        if ( i == 1 )
-          {
-          f->SetInput( m_FirstFilter->GetOutput() );
-          }
         else
-          {
-          // note: first filter in vector (zeroth element) is for i==1
-          f->SetInput( m_IntermediateFilters[i - 2]->GetOutput() );
-          }
+        {
+            oper[reverse_i].SetVariance( (this->GetVariance())[i] );
         }
-      }
-
-    // Last filter convolves and changes type from real type to output type
-    m_LastFilter->SetOperator(oper[filterDimensionality - 1]);
-    m_LastFilter->ReleaseDataFlagOn();
-    if ( filterDimensionality > 2 )
-      {
-      m_LastFilter->SetInput( m_IntermediateFilters[filterDimensionality - 3]->GetOutput() );
-      }
-    else
-      {
-      m_LastFilter->SetInput( m_FirstFilter->GetOutput() );
-      }
-    //progress->RegisterInternalFilter(m_LastFilter, 1.0f / numberOfStages);
-/*
-    // Put in a StreamingImageFilter so the mini-pipeline is processed
-    // in chunks to minimize memory usage
-    StreamingFilterPointer streamingFilter = StreamingFilterType::New();
-    streamingFilter->SetInput( m_LastFilter->GetOutput() );
-    streamingFilter->SetNumberOfStreamDivisions( this->GetInternalNumberOfStreamDivisions() );
-    progress->RegisterInternalFilter(streamingFilter, 1.0f / numberOfStages);
-
-    // Graft this filters output onto the mini-pipeline so the mini-pipeline
-    // has the correct region ivars and will write to this filters bulk data
-    // output.
-    streamingFilter->GraftOutput(output);
-
-    // Update the last filter in the chain
-    streamingFilter->Update();
-*/
-    m_LastFilter->GraftOutput(output);
-
-    m_LastFilter->Update();
-
-    // Graft the last output of the mini-pipeline onto this filters output so
-    // the final output has the correct region ivars and a handle to the final
-    // bulk data
-    this->GraftOutput(  m_LastFilter->GetOutput() ); //output);
+        
+        oper[reverse_i].SetMaximumKernelWidth( this->GetMaximumKernelWidth() );
+        oper[reverse_i].SetMaximumError( (this->GetMaximumError())[i] );
+        oper[reverse_i].CreateDirectional();
     }
+
+#ifdef FILTER_DEBUG
+    sprintf(debug_msg, "%s\n", "operators settled");
+    std::cout << debug_msg;
+#endif
+    
+    // Create a chain of filters
+    //
+    //
+    
+    if ( filterDimensionality == 1 )
+    {
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "operating on single dim filter");
+        std::cout << debug_msg;
+#endif
+        // Use just a single filter
+        m_SingleFilter->SetOperator( oper[0] );
+        m_SingleFilter->SetInput( localInput );
+        //progress->RegisterInternalFilter(m_SingleFilter, 1.0f /
+        // this->GetFilterDimensionality());
+        
+        // Graft this filters output onto the mini-pipeline so the mini-pipeline
+        // has the correct region ivars and will write to this filters bulk data
+        // output.
+        m_SingleFilter->GraftOutput( output );
+
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "grafting output");
+        std::cout << debug_msg;
+#endif
+        // Update the filter
+        m_SingleFilter->Update();
+
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "single filter updated");
+        std::cout << debug_msg;
+#endif
+        // Graft the last output of the mini-pipeline onto this filters output so
+        // the final output has the correct region ivars and a handle to the final
+        // bulk data
+        this->GraftOutput( m_SingleFilter->GetOutput() ); //output);
+    }
+    else
+    {
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "mutiple filters, setting first filter");
+        std::cout << debug_msg;
+#endif
+        // Setup a full mini-pipeline and stream the data through the
+        // pipeline.
+        //unsigned int numberOfStages = filterDimensionality *
+        // this->GetInternalNumberOfStreamDivisions() + 1;
+        
+        // First filter convolves and changes type from input type to real type
+        m_FirstFilter->SetOperator( oper[0] );
+        m_FirstFilter->ReleaseDataFlagOn();
+        m_FirstFilter->SetInput( localInput );
+        //progress->RegisterInternalFilter(m_FirstFilter, 1.0f / numberOfStages);
+
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "setting chain filters");
+        std::cout << debug_msg;
+#endif
+        
+        // Middle filters convolves from real to real
+        if ( filterDimensionality > 2 )
+        {
+            for ( i = 1; i < filterDimensionality - 1; ++i )
+            {
+                typename IntermediateFilterType::Pointer f = m_IntermediateFilters[i - 1];
+                f->SetOperator( oper[i] );
+                f->ReleaseDataFlagOn();
+                //progress->RegisterInternalFilter(f, 1.0f / numberOfStages);
+                
+                if ( i == 1 )
+                {
+                    f->SetInput( m_FirstFilter->GetOutput() );
+                }
+                else
+                {
+                    // note: first filter in vector (zeroth element) is for i==1
+                    f->SetInput( m_IntermediateFilters[i - 2]->GetOutput() );
+                }
+            }
+        }
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "setting last filter");
+        std::cout << debug_msg;
+#endif
+        
+        // Last filter convolves and changes type from real type to output type
+        m_LastFilter->SetOperator( oper[filterDimensionality - 1] );
+        m_LastFilter->ReleaseDataFlagOn();
+        if ( filterDimensionality > 2 )
+        {
+            m_LastFilter->SetInput( m_IntermediateFilters[filterDimensionality - 3]->GetOutput() );
+        }
+        else
+        {
+            m_LastFilter->SetInput( m_FirstFilter->GetOutput() );
+        }
+        //progress->RegisterInternalFilter(m_LastFilter, 1.0f / numberOfStages);
+        /*
+        // Put in a StreamingImageFilter so the mini-pipeline is processed
+        // in chunks to minimize memory usage
+        StreamingFilterPointer streamingFilter = StreamingFilterType::New();
+        streamingFilter->SetInput( m_LastFilter->GetOutput() );
+        streamingFilter->SetNumberOfStreamDivisions( this->GetInternalNumberOfStreamDivisions() );
+        progress->RegisterInternalFilter(streamingFilter, 1.0f / numberOfStages);
+    
+        // Graft this filters output onto the mini-pipeline so the mini-pipeline
+        // has the correct region ivars and will write to this filters bulk data
+        // output.
+        streamingFilter->GraftOutput(output);
+    
+        // Update the last filter in the chain
+        streamingFilter->Update();
+        */
+        m_LastFilter->GraftOutput( output );
+        
+        m_LastFilter->Update();
+
+#ifdef FILTER_DEBUG
+        sprintf(debug_msg, "%s\n", "grafting output");
+        std::cout << debug_msg;
+#endif
+        // Graft the last output of the mini-pipeline onto this filters output so
+        // the final output has the correct region ivars and a handle to the final
+        // bulk data
+        this->GraftOutput( m_LastFilter->GetOutput() ); //output);
+    }
+
+#ifdef FILTER_DEBUG
+    sprintf(debug_msg, "%s\n", "GPUDiscreteGaussianImageFilter:: done, all done");
+    std::cout << debug_msg;
+#endif
+
 }
 
 template< typename TInputImage, typename TOutputImage >
 void
-GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >
-::PrintSelf(std::ostream & os, Indent indent) const
+GPUDiscreteGaussianImageFilter< TInputImage, TOutputImage >::PrintSelf( std::ostream &os, Indent indent ) const
 {
-  GPUSuperclass::PrintSelf(os, indent);
+    GPUSuperclass::PrintSelf( os, indent );
 }
 
 } // end namespace itk

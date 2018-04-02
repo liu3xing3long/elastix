@@ -26,13 +26,12 @@
 namespace itk
 {
 template< typename TInputImage, typename TOutputImage, typename TKernel >
-GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >
-::GPUBinaryMorphologyImageFilter()
+GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >::GPUBinaryMorphologyImageFilter()
 {
     // Create GPU buffer to store neighborhood coefficient.
     // This will be used as __constant memory in the GPU kernel.
     m_NeighborhoodGPUBuffer = NeighborhoodGPUBufferType::New();
-
+    
     m_seCount = 0;
     m_ForegroundValue = NumericTraits< InputPixelType >::max();
     m_BackgroundValue = NumericTraits< InputPixelType >::ZeroValue();
@@ -41,58 +40,57 @@ GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >
 
 template< typename TInputImage, typename TOutputImage, typename TKernel >
 void
-GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >
-::SetKernel(const TKernel& p)
+GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >::SetKernel( const TKernel &p )
 {
-  m_kernel = p;
-
-  /** Create GPU memory for operator coefficients */
-  m_NeighborhoodGPUBuffer->Initialize();
-
-  typename NeighborhoodGPUBufferType::IndexType  index;
-  typename NeighborhoodGPUBufferType::SizeType   size;
-  typename NeighborhoodGPUBufferType::RegionType region;
-
-  for(int i=0; i<ImageDimension; i++)
+    m_kernel = p;
+    
+    /** Create GPU memory for operator coefficients */
+    m_NeighborhoodGPUBuffer->Initialize();
+    
+    typename NeighborhoodGPUBufferType::IndexType index;
+    typename NeighborhoodGPUBufferType::SizeType size;
+    typename NeighborhoodGPUBufferType::RegionType region;
+    
+    for ( int i = 0; i < ImageDimension; i++ )
     {
-    index[i] = 0;
-    size[i]  = (unsigned int)(p.GetSize(i) );
+        index[i] = 0;
+        size[i] = ( unsigned int ) (p.GetSize( i ));
     }
-  region.SetSize( size );
-  region.SetIndex( index );
-  // region.Print(std::cout);
-
-  m_NeighborhoodGPUBuffer->SetRegions( region );
-  m_NeighborhoodGPUBuffer->Allocate();
-
-  // m_NeighborhoodGPUBuffer->GetLargestPossibleRegion().Print(std::cout);
-
-  /** Copy coefficients */
-  ImageRegionIterator<NeighborhoodGPUBufferType> iit(m_NeighborhoodGPUBuffer,
-						     m_NeighborhoodGPUBuffer->GetLargestPossibleRegion() );
-
-  // std::cout << "iit.IsAtEnd(): " << iit.IsAtEnd() << std::endl;
-
-  typename TKernel::ConstIterator nit = p.Begin();
-
-  m_seCount = 0;
-  for(iit.GoToBegin(); !iit.IsAtEnd(); ++iit, ++nit)
+    region.SetSize( size );
+    region.SetIndex( index );
+    // region.Print(std::cout);
+    
+    m_NeighborhoodGPUBuffer->SetRegions( region );
+    m_NeighborhoodGPUBuffer->Allocate();
+    
+    // m_NeighborhoodGPUBuffer->GetLargestPossibleRegion().Print(std::cout);
+    
+    /** Copy coefficients */
+    ImageRegionIterator< NeighborhoodGPUBufferType > iit( m_NeighborhoodGPUBuffer, m_NeighborhoodGPUBuffer->GetLargestPossibleRegion() );
+    
+    // std::cout << "iit.IsAtEnd(): " << iit.IsAtEnd() << std::endl;
+    
+    typename TKernel::ConstIterator nit = p.Begin();
+    
+    m_seCount = 0;
+    for ( iit.GoToBegin(); !iit.IsAtEnd(); ++iit, ++nit )
     {
-    // std::cout << (int) *nit << ",";
-    iit.Set( static_cast< typename NeighborhoodGPUBufferType::PixelType >( *nit ) );
-    if(*nit == 1)
-	++m_seCount;
+        // std::cout << (int) *nit << ",";
+        iit.Set( static_cast< typename NeighborhoodGPUBufferType::PixelType >( *nit ) );
+        if ( *nit == 1 )
+        {
+            ++m_seCount;
+        }
     }
-  // std::cout << "SE count: " << m_seCount << std::endl;
-
-  /** Mark GPU dirty */
-  m_NeighborhoodGPUBuffer->GetGPUDataManager()->SetGPUBufferDirty();
+    // std::cout << "SE count: " << m_seCount << std::endl;
+    
+    /** Mark GPU dirty */
+    m_NeighborhoodGPUBuffer->GetGPUDataManager()->SetGPUBufferDirty();
 }
 
 template< typename TInputImage, typename TOutputImage, typename TKernel >
-const TKernel&
-GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >
-::GetKernel() const
+const TKernel &
+GPUBinaryMorphologyImageFilter< TInputImage, TOutputImage, TKernel >::GetKernel() const
 {
     return m_kernel;
 }

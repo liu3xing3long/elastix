@@ -39,65 +39,70 @@ itkGPUKernelClassMacro( GPURecursiveGaussianImageFilterKernel );
  * \ingroup GPUCommon
  */
 template< typename TInputImage, typename TOutputImage >
-class ITK_EXPORT GPURecursiveGaussianImageFilter :
-  public         GPUInPlaceImageFilter< TInputImage, TOutputImage,
-  RecursiveGaussianImageFilter< TInputImage, TOutputImage > >
+class ITK_EXPORT GPURecursiveGaussianImageFilter:
+        public GPUInPlaceImageFilter< TInputImage, TOutputImage, RecursiveGaussianImageFilter< TInputImage, TOutputImage > >
 {
 public:
-
-  /** Standard class typedefs. */
-  typedef GPURecursiveGaussianImageFilter                                   Self;
-  typedef RecursiveGaussianImageFilter< TInputImage, TOutputImage >         CPUSuperclass;
-  typedef GPUImageToImageFilter< TInputImage, TOutputImage, CPUSuperclass > GPUSuperclass;
-  typedef SmartPointer< Self >                                              Pointer;
-  typedef SmartPointer< const Self >                                        ConstPointer;
-
-  /** Method for creation through the object factory. */
-  itkNewMacro( Self );
-
-  /** Run-time type information (and related methods). */
-  itkTypeMacro( GPURecursiveGaussianImageFilter, GPUSuperclass );
-
-  /** Superclass typedefs. */
-  typedef typename GPUSuperclass::OutputImageRegionType OutputImageRegionType;
-  typedef typename GPUSuperclass::OutputImagePixelType  OutputImagePixelType;
-  typedef typename CPUSuperclass::ScalarRealType        ScalarRealType;
-
-  /** Some convenient typedefs. */
-  typedef TInputImage                           InputImageType;
-  typedef typename InputImageType::Pointer      InputImagePointer;
-  typedef typename InputImageType::ConstPointer InputImageConstPointer;
-  typedef typename InputImageType::RegionType   InputImageRegionType;
-  typedef typename InputImageType::PixelType    InputImagePixelType;
-
-  /** ImageDimension constants */
-  itkStaticConstMacro( InputImageDimension, unsigned int,
-    TInputImage::ImageDimension );
-  itkStaticConstMacro( OutputImageDimension, unsigned int,
-    TOutputImage::ImageDimension );
+    
+    /** Standard class typedefs. */
+    typedef GPURecursiveGaussianImageFilter Self;
+    typedef RecursiveGaussianImageFilter< TInputImage, TOutputImage > CPUSuperclass;
+    typedef GPUImageToImageFilter< TInputImage, TOutputImage, CPUSuperclass > GPUSuperclass;
+    typedef SmartPointer< Self > Pointer;
+    typedef SmartPointer< const Self > ConstPointer;
+    
+    /** Method for creation through the object factory. */
+    itkNewMacro( Self );
+    
+    /** Run-time type information (and related methods). */
+    itkTypeMacro( GPURecursiveGaussianImageFilter, GPUSuperclass );
+    
+    /** Superclass typedefs. */
+    typedef typename GPUSuperclass::OutputImageRegionType OutputImageRegionType;
+    typedef typename GPUSuperclass::OutputImagePixelType OutputImagePixelType;
+    typedef typename CPUSuperclass::ScalarRealType ScalarRealType;
+    
+    /** Some convenient typedefs. */
+    typedef TInputImage InputImageType;
+    typedef typename InputImageType::Pointer InputImagePointer;
+    typedef typename InputImageType::ConstPointer InputImageConstPointer;
+    typedef typename InputImageType::RegionType InputImageRegionType;
+    typedef typename InputImageType::PixelType InputImagePixelType;
+    
+    /** ImageDimension constants */
+    itkStaticConstMacro( InputImageDimension, unsigned int, TInputImage::ImageDimension );
+    itkStaticConstMacro( OutputImageDimension, unsigned int, TOutputImage::ImageDimension );
 
 protected:
-
-  GPURecursiveGaussianImageFilter();
-  ~GPURecursiveGaussianImageFilter(){}
-
-  virtual void PrintSelf( std::ostream & os, Indent indent ) const ITK_OVERRIDE;
-
-  virtual void GPUGenerateData();
+    
+    GPURecursiveGaussianImageFilter();
+    
+    ~GPURecursiveGaussianImageFilter()
+    {
+    }
+    
+    virtual void
+    PrintSelf( std::ostream &os, Indent indent ) const ITK_OVERRIDE;
+    
+    virtual void
+    GPUGenerateData();
 
 private:
-
-  GPURecursiveGaussianImageFilter( const Self & ); // purposely not implemented
-  void operator=( const Self & );                  // purposely not implemented
-
-  std::size_t m_FilterGPUKernelHandle;
-  std::size_t m_DeviceLocalMemorySize;
+    
+    GPURecursiveGaussianImageFilter( const Self & ); // purposely not implemented
+    void
+    operator =( const Self & );                  // purposely not implemented
+    
+    std::size_t m_FilterGPUKernelHandle;
+    std::size_t m_DeviceLocalMemorySize;
 };
 
 } // end namespace itk
 
 #ifndef ITK_MANUAL_INSTANTIATION
+
 #include "itkGPURecursiveGaussianImageFilter.hxx"
+
 #endif
 
 #endif /* __itkGPURecursiveGaussianImageFilter_h */

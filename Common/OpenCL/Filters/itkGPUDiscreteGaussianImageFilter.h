@@ -44,83 +44,80 @@ namespace itk
  */
 
 template< typename TInputImage, typename TOutputImage >
-class ITK_TEMPLATE_EXPORT GPUDiscreteGaussianImageFilter :
-  public GPUImageToImageFilter< TInputImage, TOutputImage, DiscreteGaussianImageFilter< TInputImage, TOutputImage > >
+class ITK_TEMPLATE_EXPORT GPUDiscreteGaussianImageFilter:
+        public GPUImageToImageFilter< TInputImage, TOutputImage, DiscreteGaussianImageFilter< TInputImage, TOutputImage > >
 {
 public:
-  /** Standard class typedefs. */
-  typedef GPUDiscreteGaussianImageFilter                                    Self;
-  typedef DiscreteGaussianImageFilter< TInputImage, TOutputImage >          CPUSuperclass;
-  typedef GPUImageToImageFilter< TInputImage, TOutputImage, CPUSuperclass > GPUSuperclass;
-  typedef SmartPointer< Self >                                              Pointer;
-  typedef SmartPointer< const Self >                                        ConstPointer;
-
-  /** Method for creation through the object factory. */
-  itkNewMacro(Self);
-
-  /** Run-time type information (and related methods). */
-  itkTypeMacro(GPUDiscreteGaussianImageFilter, GPUImageToImageFilter);
-
-  /** Image type information. */
-  typedef TInputImage  InputImageType;
-  typedef TOutputImage OutputImageType;
-
-  /** Extract some information from the image types.  Dimensionality
-   * of the two images is assumed to be the same.   */
-  itkStaticConstMacro(ImageDimension, unsigned int,
-                      TOutputImage::ImageDimension);
-
-  /** Extract some information from the image types.  Dimensionality
-   * of the two images is assumed to be the same. */
-  typedef typename TOutputImage::PixelType         OutputPixelType;
-  typedef typename TOutputImage::InternalPixelType OutputInternalPixelType;
-  typedef typename TInputImage::PixelType          InputPixelType;
-  typedef typename TInputImage::InternalPixelType  InputInternalPixelType;
-
-  /** Pixel value type for Vector pixel types **/
-  typedef typename NumericTraits<InputPixelType>::ValueType  InputPixelValueType;
-  typedef typename NumericTraits<OutputPixelType>::ValueType OutputPixelValueType;
-
-  typedef OutputPixelType
-                                                                         RealOutputPixelType;
-  typedef GPUImage< OutputPixelType,
-                    ImageDimension >                                     RealOutputImageType;
-  typedef typename NumericTraits<RealOutputPixelType>::ValueType
-                                                                         RealOutputPixelValueType;
-  typedef GPUNeighborhoodOperatorImageFilter< InputImageType, RealOutputImageType,
-                                              RealOutputPixelValueType > FirstFilterType;
-  typedef GPUNeighborhoodOperatorImageFilter< RealOutputImageType, RealOutputImageType,
-                                              RealOutputPixelValueType > IntermediateFilterType;
-  typedef GPUNeighborhoodOperatorImageFilter< RealOutputImageType, OutputImageType,
-                                              RealOutputPixelValueType > LastFilterType;
-  typedef GPUNeighborhoodOperatorImageFilter< InputImageType, OutputImageType,
-                                              RealOutputPixelValueType > SingleFilterType;
-
-  virtual void GenerateInputRequestedRegion() ITK_OVERRIDE;
+    /** Standard class typedefs. */
+    typedef GPUDiscreteGaussianImageFilter Self;
+    typedef DiscreteGaussianImageFilter< TInputImage, TOutputImage > CPUSuperclass;
+    typedef GPUImageToImageFilter< TInputImage, TOutputImage, CPUSuperclass > GPUSuperclass;
+    typedef SmartPointer< Self > Pointer;
+    typedef SmartPointer< const Self > ConstPointer;
+    
+    /** Method for creation through the object factory. */
+    itkNewMacro( Self );
+    
+    /** Run-time type information (and related methods). */
+    itkTypeMacro( GPUDiscreteGaussianImageFilter, GPUImageToImageFilter );
+    
+    /** Image type information. */
+    typedef TInputImage InputImageType;
+    typedef TOutputImage OutputImageType;
+    
+    /** Extract some information from the image types.  Dimensionality
+     * of the two images is assumed to be the same.   */
+    itkStaticConstMacro( ImageDimension, unsigned int, TOutputImage::ImageDimension );
+    
+    /** Extract some information from the image types.  Dimensionality
+     * of the two images is assumed to be the same. */
+    typedef typename TOutputImage::PixelType OutputPixelType;
+    typedef typename TOutputImage::InternalPixelType OutputInternalPixelType;
+    typedef typename TInputImage::PixelType InputPixelType;
+    typedef typename TInputImage::InternalPixelType InputInternalPixelType;
+    
+    /** Pixel value type for Vector pixel types **/
+    typedef typename NumericTraits< InputPixelType >::ValueType InputPixelValueType;
+    typedef typename NumericTraits< OutputPixelType >::ValueType OutputPixelValueType;
+    typedef OutputPixelType RealOutputPixelType;
+    typedef GPUImage< OutputPixelType, ImageDimension > RealOutputImageType;
+    typedef typename NumericTraits< RealOutputPixelType >::ValueType RealOutputPixelValueType;
+    typedef GPUNeighborhoodOperatorImageFilter< InputImageType, RealOutputImageType, RealOutputPixelValueType > FirstFilterType;
+    typedef GPUNeighborhoodOperatorImageFilter< RealOutputImageType, RealOutputImageType, RealOutputPixelValueType > IntermediateFilterType;
+    typedef GPUNeighborhoodOperatorImageFilter< RealOutputImageType, OutputImageType, RealOutputPixelValueType > LastFilterType;
+    typedef GPUNeighborhoodOperatorImageFilter< InputImageType, OutputImageType, RealOutputPixelValueType > SingleFilterType;
+    
+    virtual void
+    GenerateInputRequestedRegion() ITK_OVERRIDE;
 
 protected:
-  GPUDiscreteGaussianImageFilter();
+    GPUDiscreteGaussianImageFilter();
+    
+    virtual ~GPUDiscreteGaussianImageFilter()
+    {
+    }
+    
+    void
+    PrintSelf( std::ostream &os, Indent indent ) const ITK_OVERRIDE;
+    
+    /** Standard GPU pipeline method. */
+    void
+    GPUGenerateData() ITK_OVERRIDE;
 
-  virtual ~GPUDiscreteGaussianImageFilter() {
-  }
-  void PrintSelf(std::ostream & os, Indent indent) const ITK_OVERRIDE;
-
-  /** Standard GPU pipeline method. */
-  void GPUGenerateData() ITK_OVERRIDE;
-
-private:
-  ITK_DISALLOW_COPY_AND_ASSIGN(GPUDiscreteGaussianImageFilter);
-
-  /** Intermediate 1D Gaussian filters */
-  typename FirstFilterType::Pointer                       m_FirstFilter;
-  typename LastFilterType::Pointer                        m_LastFilter;
-  std::vector< typename IntermediateFilterType::Pointer > m_IntermediateFilters;
-  typename SingleFilterType::Pointer                      m_SingleFilter;
+private: ITK_DISALLOW_COPY_AND_ASSIGN( GPUDiscreteGaussianImageFilter );
+    
+    /** Intermediate 1D Gaussian filters */
+    typename FirstFilterType::Pointer m_FirstFilter;
+    typename LastFilterType::Pointer m_LastFilter;
+    std::vector< typename IntermediateFilterType::Pointer > m_IntermediateFilters;
+    typename SingleFilterType::Pointer m_SingleFilter;
 };
 } // end namespace itk
 
 #ifndef ITK_MANUAL_INSTANTIATION
+
 #include "itkGPUDiscreteGaussianImageFilter.hxx"
+
 #endif
 
 #endif

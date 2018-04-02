@@ -24,7 +24,7 @@
 //
 // OpenCL implementation of itk::RecursiveGaussianImageFilter
 
-#define _ELASTIX_USE_OPENCL_OPTIMIZATIONS 0
+#define _ELASTIX_USE_OPENCL_OPTIMIZATIONS 1
 
 //------------------------------------------------------------------------------
 // Exact copy of FilterDataArray from RecursiveSeparableImageFilter

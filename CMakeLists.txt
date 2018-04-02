@@ -29,6 +29,9 @@ string( REGEX REPLACE "([0-9]+)\\." "" ELASTIX_VERSION_MINOR "${ELASTIX_VERSION}
 #---------------------------------------------------------------------
 include( CTest )
 
+#set(ITK_DIR "/home/liuxinglong/work/SimpleElastix/build/ITK-build")
+set(ITK_DIR "${CMAKE_SOURCE_DIR}/../build/ITK-build")
+
 #---------------------------------------------------------------------
 # Generate executable, static library or dynamic library.
 mark_as_advanced( ELASTIX_BUILD_EXECUTABLE )

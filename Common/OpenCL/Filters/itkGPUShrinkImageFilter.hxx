@@ -204,7 +204,7 @@ GPUShrinkImageFilter< TInputImage, TOutputImage >
 
   // launch kernel
   OpenCLEvent event = this->m_GPUKernelManager->LaunchKernel( this->m_FilterGPUKernelHandle,
-    OpenCLSize( globalSize ), localSize );
+    OpenCLSize(globalSize), OpenCLSize(localSize) );
 
   event.WaitForFinished();
 
