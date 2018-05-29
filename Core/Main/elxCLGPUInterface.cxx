@@ -964,7 +964,7 @@ CLGPUInterface::~CLGPUInterface()
 
 //--------------------------------------------------------
 bool
-CLGPUInterface::IsGPUEnabled()
+CLGPUInterface::IsGPUAvailable()
 {
     itk::OpenCLDevice device;
     

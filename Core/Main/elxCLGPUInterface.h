@@ -60,7 +60,7 @@ public:
 
 public:
     bool
-    IsGPUEnabled( void );
+    IsGPUAvailable( void );
     
     void
     PrintGPUInfo();
