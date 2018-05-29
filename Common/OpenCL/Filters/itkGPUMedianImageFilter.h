@@ -88,7 +88,7 @@ protected:
 
 private: ITK_DISALLOW_COPY_AND_ASSIGN( GPUMedianImageFilter );
     
-    std::size_t  m_MedianFilterGPUKernelHandle;
+    std::size_t m_MedianFilterGPUKernelHandle;
     std::size_t m_DeviceLocalMemorySize;
 };
 

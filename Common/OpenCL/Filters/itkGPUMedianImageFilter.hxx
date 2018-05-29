@@ -21,7 +21,7 @@
 #include "itkGPUMedianImageFilter.h"
 #include "itkOpenCLProfilingTimeProbe.h"
 
-#define FILTER_DEBUG
+//#define FILTER_DEBUG
 
 
 namespace itk

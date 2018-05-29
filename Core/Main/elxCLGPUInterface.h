@@ -53,16 +53,28 @@ public:
     GPUMemoryTest( CPUInputImageType::Pointer input );
 
 public:
+    // should call Init immediately after creating the interface before using any
+    // real working methods
+    bool
+    Init( std::vector< unsigned int > gpu_ids = std::vector< unsigned int >( 1, 0 ) );
+
+public:
     bool
     IsGPUEnabled( void );
     
     void
     PrintGPUInfo();
-    
+
 public:
-    // resample floating images
+    /// \brief resample given image at specified spacing
+    /// \param input cpu itk image pointer
+    /// \param outSpacing specified output image spacing
+    /// \param uInterplolatorOrder interpolator type and order, 0 = NN, 1 = Linear, 2 and 3 = BSpline
+    /// \param iDefault_voxel_value default voxel value outside the resample region
+    /// \return resample image resampled image
     GPUOutputImageType::Pointer
-    Resample( CPUInputImageType::Pointer input, std::vector< float > outSpacing );
+    Resample( CPUInputImageType::Pointer input, std::vector< float > outSpacing = std::vector< float >( 3, 1.0 ),
+              unsigned int uInterplolatorOrder = 3, int iDefault_voxel_value = -2048 );
     
     GPUOutputImageType::Pointer
     Threshold( CPUInputImageType::Pointer input, double lowerThreshold, double upperThreshold, double outsideValue );
@@ -109,12 +121,6 @@ public:
     
     const char *
     GetLastError();
-
-private:
-    // should call Init immediately after creating the interface before using any
-    // real working methods
-    bool
-    Init( void );
 
 private:
     char _last_error[4096];

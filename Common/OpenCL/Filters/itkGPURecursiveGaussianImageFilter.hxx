@@ -18,7 +18,7 @@
 #ifndef __itkGPURecursiveGaussianImageFilter_hxx
 #define __itkGPURecursiveGaussianImageFilter_hxx
 
-#define FILTER_DEBUG
+//#define FILTER_DEBUG
 
 #include "itkGPURecursiveGaussianImageFilter.h"
 #include "itkOpenCLUtil.h"

@@ -104,7 +104,9 @@ CLGPUInterface::PrintInfo()
 
 //------------------------------------------------------------------------------
 GPUOutputImageType::Pointer
-CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage, std::vector< float > outSpacing )
+CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage,
+                          std::vector< float > outSpacing /*= std::vector<float> (3, 1.0)*/,
+                          unsigned int uInterplolatorOrder /*= 3*/, int iDefault_voxel_value /*= -2048 */)
 {
     std::ostringstream o_string;
     
@@ -131,8 +133,39 @@ CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage, std::vector< floa
     
     // CPU part
     InterpolatorType::Pointer cpuInterpolator;
-    const unsigned int splineOrderInterpolator = 3;
-    itk::DefineInterpolator< InterpolatorType >( cpuInterpolator, "BSpline", splineOrderInterpolator );
+    
+    switch ( uInterplolatorOrder )
+    {
+        case 0:
+        {
+            const unsigned int splineOrderInterpolator = uInterplolatorOrder;
+            itk::DefineInterpolator< InterpolatorType >( cpuInterpolator, "NearestNeighbor", splineOrderInterpolator );
+            break;
+        }
+        
+        case 1:
+        {
+            const unsigned int splineOrderInterpolator = uInterplolatorOrder;
+            itk::DefineInterpolator< InterpolatorType >( cpuInterpolator, "Linear", splineOrderInterpolator );
+            break;
+        }
+        
+        case 2:
+        case 3:
+        {
+            const unsigned int splineOrderInterpolator = uInterplolatorOrder;
+            itk::DefineInterpolator< InterpolatorType >( cpuInterpolator, "BSpline", splineOrderInterpolator );
+            break;
+        }
+
+        default:
+        {
+            o_string << "interpolator order " << uInterplolatorOrder << " not supported " << std::endl;
+            SetLastError( o_string.str().c_str() );
+            break;
+        }
+    }
+    
     
     // Create Translation transform
     TransformType::Pointer cpuTransform;
@@ -184,22 +217,6 @@ CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage, std::vector< floa
 #ifndef NDEBUG
     std::cout << "output params obtained." << std::endl;
 #endif
-    // GPUInputImageType::Pointer itkGPUImage = GPUInputImageType::New();
-    // try
-    // {
-    //   itkGPUImage->GraftITKImage( itkImage );
-    //   itkGPUImage->AllocateGPU();
-    //   itkGPUImage->GetGPUDataManager()->SetCPUBufferLock( true );
-    //   itkGPUImage->GetGPUDataManager()->SetGPUDirtyFlag( true );
-    //   itkGPUImage->GetGPUDataManager()->UpdateGPUBuffer();
-    // }
-    // catch( itk::ExceptionObject & e )
-    // {
-    //   o_string  << "ERROR: Exception during creating GPU input image: " << e << std::endl;
-    //   SetLastError(o_string.str().c_str());
-    //   itk::ReleaseContext();
-    //   return NULL;
-    // }
     GPUInputImageType::Pointer itkGPUImage = CraftGPUImage< CPUInputImageType, GPUInputImageType >( itkImage );
     
     // Create GPU copy for interpolator here
@@ -243,7 +260,7 @@ CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage, std::vector< floa
 #endif
     try
     {
-        gpuFilter->SetDefaultPixelValue( -2048 );
+        gpuFilter->SetDefaultPixelValue( iDefault_voxel_value );
         gpuFilter->SetOutputSpacing( outputSpacing );
         gpuFilter->SetOutputOrigin( outputOrigin );
         gpuFilter->SetOutputDirection( outputDirection );
@@ -910,7 +927,7 @@ CLGPUInterface::GradientAnisotropicDiffusion( CPUInputImageType::Pointer itkImag
         gpuFilter->SetConductanceParameter( conductanceParameter );
         gpuFilter->SetConductanceScalingUpdateInterval( conductanceScalingUpdateInterval );
         gpuFilter->UseImageSpacingOn();
-    
+        
         gpuFilter->SetInput( itkGPUImage );
 #ifndef NDEBUG
         std::cout << "filter settled" << std::endl;
@@ -933,7 +950,7 @@ CLGPUInterface::GradientAnisotropicDiffusion( CPUInputImageType::Pointer itkImag
 //--------------------------------------------------------
 CLGPUInterface::CLGPUInterface()
 {
-    Init();
+//    Init();
 }
 
 //--------------------------------------------------------
@@ -987,7 +1004,9 @@ CLGPUInterface::PrintGPUInfo()
     itk::OpenCLDevice device;
     
     if ( !device.IsNull() )
+    {
         return;
+    }
     
     // Get all devices
     std::list< itk::OpenCLDevice > gpus;
@@ -996,21 +1015,19 @@ CLGPUInterface::PrintGPUInfo()
     {
         if ( ((*dev).GetDeviceType() & itk::OpenCLDevice::GPU) != 0 )
         {
-            cl_device_id dev_id =  dev->GetDeviceId();
-            itk::OpenCLPrintDeviceInfo(dev_id, true);
+            cl_device_id dev_id = dev->GetDeviceId();
+            itk::OpenCLPrintDeviceInfo( dev_id, true );
         }
     }
 }
 
-
-
 //--------------------------------------------------------
 bool
-CLGPUInterface::Init()
+CLGPUInterface::Init( std::vector< unsigned int > gpu_ids )
 {
     std::ostringstream o_string;
     // Create and check OpenCL context
-    if ( !itk::CreateContext() )
+    if ( !itk::CreateContext( gpu_ids ) )
     {
         o_string << "Creating OpenGL Context failed ! Check your GPU! " << std::endl;
         SetLastError( o_string.str().c_str() );
