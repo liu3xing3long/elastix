@@ -105,16 +105,32 @@ Compare( T const &t1, T const &t2, const char *actual, const char *expected, con
 
 //------------------------------------------------------------------------------
 bool
-CreateContext( const std::vector< unsigned int > &device_ids, OpenCLDevice::DeviceType deviceType = OpenCLDevice::GPU,
+CreateContext( const std::vector< unsigned int > &device_ids, bool verbose = false,
+               OpenCLDevice::DeviceType deviceType = OpenCLDevice::GPU,
                OpenCLPlatform::VendorType vendorType = OpenCLPlatform::NVidia )
 {
     // Create and check OpenCL context
     OpenCLContext::Pointer context = OpenCLContext::GetInstance();
     std::list< OpenCLDevice > devices = OpenCLDevice::GetDevices( deviceType, vendorType );
     unsigned int devices_count = devices.size();
+    unsigned int device_ids_count = device_ids.size();
+    
+    // print all devices for debug
+    if ( verbose )
+    {
+        std::cout << "-------------- Collected all devices ---------------------" << std::endl;
+        for ( std::list< itk::OpenCLDevice >::const_iterator dev = devices.begin(); dev != devices.end(); ++dev )
+        {
+            if ( ((*dev).GetDeviceType() & itk::OpenCLDevice::GPU) != 0 )
+            {
+                cl_device_id dev_id = dev->GetDeviceId();
+                itk::OpenCLPrintDeviceInfo( dev_id, true );
+            }
+        }
+    }
     
     std::list< OpenCLDevice > selected_devices;
-    for ( unsigned int d_idx = 0; d_idx < devices_count; d_idx++ )
+    for ( unsigned int d_idx = 0; d_idx < device_ids_count; d_idx++ )
     {
         unsigned int device_id = device_ids[d_idx];
         if ( device_id >= devices_count )
@@ -125,9 +141,24 @@ CreateContext( const std::vector< unsigned int > &device_ids, OpenCLDevice::Devi
         }
         else
         {
-            std::list< OpenCLDevice >::iterator iter  = devices.begin();
+            std::list< OpenCLDevice >::iterator iter = devices.begin();
             std::advance( iter, device_id );
             selected_devices.push_back( *iter );
+        }
+    }
+    
+    // print all selected devices for debug
+    if ( verbose )
+    {
+        std::cout << "-------------- selected devices ---------------------" << std::endl;
+        for ( std::list< itk::OpenCLDevice >::const_iterator dev = selected_devices.begin();
+              dev != selected_devices.end(); ++dev )
+        {
+            if ( ((*dev).GetDeviceType() & itk::OpenCLDevice::GPU) != 0 )
+            {
+                cl_device_id dev_id = dev->GetDeviceId();
+                itk::OpenCLPrintDeviceInfo( dev_id, true );
+            }
         }
     }
     

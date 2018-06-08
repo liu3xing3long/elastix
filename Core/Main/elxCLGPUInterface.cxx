@@ -157,7 +157,7 @@ CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage,
             itk::DefineInterpolator< InterpolatorType >( cpuInterpolator, "BSpline", splineOrderInterpolator );
             break;
         }
-
+        
         default:
         {
             o_string << "interpolator order " << uInterplolatorOrder << " not supported " << std::endl;
@@ -1023,11 +1023,14 @@ CLGPUInterface::PrintGPUInfo()
 
 //--------------------------------------------------------
 bool
-CLGPUInterface::Init( std::vector< unsigned int > gpu_ids )
+CLGPUInterface::Init( std::vector< unsigned int > gpu_ids, bool bVerbose /*= false*/)
 {
     std::ostringstream o_string;
+    
+    this->m_Verbose = bVerbose;
+    
     // Create and check OpenCL context
-    if ( !itk::CreateContext( gpu_ids ) )
+    if ( !itk::CreateContext( gpu_ids, this->m_Verbose ) )
     {
         o_string << "Creating OpenGL Context failed ! Check your GPU! " << std::endl;
         SetLastError( o_string.str().c_str() );

@@ -56,7 +56,7 @@ public:
     // should call Init immediately after creating the interface before using any
     // real working methods
     bool
-    Init( std::vector< unsigned int > gpu_ids = std::vector< unsigned int >( 1, 0 ) );
+    Init( std::vector< unsigned int > gpu_ids = std::vector< unsigned int >( 1, 0 ), bool bVerbose = false );
 
 public:
     bool
@@ -124,6 +124,7 @@ public:
 
 private:
     char _last_error[4096];
+    bool m_Verbose;
 };
 
 }
