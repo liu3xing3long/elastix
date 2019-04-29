@@ -19,6 +19,7 @@
 #include "itkGPUBinaryDilateImageFilter.h"
 #include "itkGPUBinaryErodeImageFilter.h"
 #include "itkBinaryBallStructuringElement.h"
+#include "itkBinaryCrossStructuringElement.h"
 #include "itkGPUBinaryThresholdImageFilter.h"
 #include "itkGPUThresholdImageFilter.h"
 #include "itkGPUMeanImageFilter.h"
@@ -165,7 +166,6 @@ CLGPUInterface::Resample( CPUInputImageType::Pointer itkImage,
             break;
         }
     }
-    
     
     // Create Translation transform
     TransformType::Pointer cpuTransform;
@@ -336,10 +336,11 @@ CLGPUInterface::Threshold( CPUInputImageType::Pointer itkImage, double lowerThre
 
 //--------------------------------------------------------
 BinGPUOutputImageType::Pointer
-CLGPUInterface::BinaryDilate( BinCPUInputImageType::Pointer itkImage, int iRadius )
+CLGPUInterface::BinaryDilate( BinCPUInputImageType::Pointer itkImage, int iRadius, unsigned int kernel_type, bool boundaryToForeground )
 {
     // some constants used and not directly assigned outside the function are placed here
-    int iForegroundVal = 1, iBackgroundVal = 0, iEnableBoundary = 0;
+    int iForegroundVal = 1, iBackgroundVal = 0;
+    bool iEnableBoundary = boundaryToForeground;
     std::ostringstream o_string;
 
 #ifndef NDEBUG
@@ -366,12 +367,34 @@ CLGPUInterface::BinaryDilate( BinCPUInputImageType::Pointer itkImage, int iRadiu
     
     BinGPUInputImageType::Pointer itkGPUImage = CraftGPUImage< BinCPUInputImageType, BinGPUInputImageType >( itkImage );
     
-    // construct filter
+    // // setting down radiuses, should be transformed to itk size format
+    // if (kernel_type == 0)
+    // {
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType kernel;
+    //     kernel.SetRadius( iRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else if (kernel_type == 1)
+    // {
+    //     typedef itk::BinaryCrossStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType kernel;
+    //     kernel.SetRadius( iRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else
+    // {
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType kernel;
+    //     kernel.SetRadius( iRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+
     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
     SRType kernel;
     kernel.SetRadius( iRadius );
     kernel.CreateStructuringElement();
-    
+
     typedef itk::GPUBinaryDilateImageFilter< BinGPUInputImageType, BinGPUOutputImageType, SRType > FilterType;
     FilterType::Pointer gpuFilter = FilterType::New();
     gpuFilter->SetInput( itkGPUImage );
@@ -462,12 +485,299 @@ CLGPUInterface::BinaryDilate( BinCPUInputImageType::Pointer itkImage, int iRadiu
 
 //--------------------------------------------------------
 BinGPUOutputImageType::Pointer
-CLGPUInterface::BinaryErode( BinCPUInputImageType::Pointer itkImage, int iRadius )
+CLGPUInterface::BinaryDilate( BinCPUInputImageType::Pointer itkImage, const std::vector< unsigned int > & radius, unsigned int kernel_type, bool boundaryToForeground )
+{
+    // some constants used and not directly assigned outside the function are placed here
+    int iForegroundVal = 1, iBackgroundVal = 0;
+    bool iEnableBoundary = boundaryToForeground;
+    std::ostringstream o_string;
+
+#ifndef NDEBUG
+    std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+    
+    BinGPUInputImageType::Pointer itkGPUImage = CraftGPUImage< BinCPUInputImageType, BinGPUInputImageType >( itkImage );
+    
+    // // setting down radiuses, should be transformed to itk size format
+    // if (kernel_type == 0)
+    // {
+    //     // construct filter
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType::SizeType szRadius;
+    //     for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    //     {
+    //         szRadius[idx] = radius[idx];
+    //     }
+    //     SRType kernel;
+    //     kernel.SetRadius( szRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else if (kernel_type == 1)
+    // {
+    //     typedef itk::BinaryCrossStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType::SizeType szRadius;
+    //     for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    //     {
+    //         szRadius[idx] = radius[idx];
+    //     }
+    //     SRType kernel;
+    //     kernel.SetRadius( szRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else
+    // {
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType::SizeType szRadius;
+    //     for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    //     {
+    //         szRadius[idx] = radius[idx];
+    //     }
+    //     SRType kernel;
+    //     kernel.SetRadius( szRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+
+    typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    SRType::SizeType szRadius;
+    for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    {
+        szRadius[idx] = radius[idx];
+    }
+    SRType kernel;
+    kernel.SetRadius( szRadius );
+    kernel.CreateStructuringElement();
+
+    typedef itk::GPUBinaryDilateImageFilter< BinGPUInputImageType, BinGPUOutputImageType, SRType > FilterType;
+    FilterType::Pointer gpuFilter = FilterType::New();
+    gpuFilter->SetInput( itkGPUImage );
+    gpuFilter->SetKernel( kernel );
+    
+    // test default values
+    if ( gpuFilter->GetBackgroundValue() != itk::NumericTraits< InterBinGPUPixType >::NonpositiveMin() )
+    {
+        o_string << "Wrong default background value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    if ( gpuFilter->GetForegroundValue() != itk::NumericTraits< InterBinGPUPixType >::max() )
+    {
+        o_string << "Wrong default foreground value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    if ( gpuFilter->GetDilateValue() != itk::NumericTraits< InterBinGPUPixType >::max() )
+    {
+        o_string << "Wrong default dilate value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    if ( gpuFilter->GetBoundaryToForeground() != false )
+    {
+        o_string << "Wrong default BoundaryToForeground value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    //Exercise Set/Get methods for Background Value
+    gpuFilter->SetForegroundValue( iForegroundVal );
+    if ( gpuFilter->GetForegroundValue() != iForegroundVal )
+    {
+        o_string << "Set/Get Foreground value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    // the same with the alias
+    gpuFilter->SetDilateValue( iForegroundVal );
+    if ( gpuFilter->GetDilateValue() != iForegroundVal )
+    {
+        o_string << "Set/Get Dilate value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    gpuFilter->SetBackgroundValue( iBackgroundVal );
+    if ( gpuFilter->GetBackgroundValue() != iBackgroundVal )
+    {
+        o_string << "Set/Get Background value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    gpuFilter->SetBoundaryToForeground( iEnableBoundary );
+    if ( gpuFilter->GetBoundaryToForeground() != ( bool ) (iEnableBoundary) )
+    {
+        o_string << "Set/Get BoundaryToForeground value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    // finally, generating output
+    try
+    {
+#ifndef NDEBUG
+        std::cout << "filter settled." << std::endl;
+#endif
+        gpuFilter->Update();
+#ifndef NDEBUG
+        std::cout << "filter updated." << std::endl;
+#endif
+    }
+    catch ( itk::ExceptionObject &e )
+    {
+        o_string << "ERROR: " << e << std::endl;
+        SetLastError( o_string.str().c_str() );
+        
+        itk::ReleaseContext();
+        return NULL;
+    }
+    
+    return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+BinGPUOutputImageType::Pointer
+CLGPUInterface::BinaryErode( BinCPUInputImageType::Pointer itkImage, int iRadius, unsigned int kernel_type, bool boundaryToForeground )
 {
     // some constants used and not directly assigned outside the function are placed here
     // NOTE, we enable the iEnableBoundary here to make sure the eroded image not get smaller
     // which is like the 'padding' in deep learning
-    int iForegroundVal = 1, iBackgroundVal = 0, iEnableBoundary = 1;
+    int iForegroundVal = 1, iBackgroundVal = 0;
+    bool iEnableBoundary = boundaryToForeground;
+    std::ostringstream o_string;
+
+#ifndef NDEBUG
+    std::cout << "entering function " << __FUNCTION__ << std::endl;
+#endif
+    
+    BinGPUInputImageType::Pointer itkGPUImage = CraftGPUImage< BinCPUInputImageType, BinGPUInputImageType >( itkImage );
+    
+    // // setting down radiuses, should be transformed to itk size format
+    // if (kernel_type == 0)
+    // {
+    //     // construct filter
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType kernel;
+    //     kernel.SetRadius( iRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else if (kernel_type == 1)
+    // {
+    //     typedef itk::BinaryCrossStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType kernel;
+    //     kernel.SetRadius( iRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else
+    // {
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType kernel;
+    //     kernel.SetRadius( iRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    
+    typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    SRType kernel;
+    kernel.SetRadius( iRadius );
+    kernel.CreateStructuringElement();
+
+    typedef itk::GPUBinaryErodeImageFilter< BinGPUInputImageType, BinGPUOutputImageType, SRType > FilterType;
+    FilterType::Pointer gpuFilter = FilterType::New();
+    gpuFilter->SetInput( itkGPUImage );
+    gpuFilter->SetKernel( kernel );
+    
+    // test default values
+    if ( gpuFilter->GetBackgroundValue() != itk::NumericTraits< InterBinGPUPixType >::NonpositiveMin() )
+    {
+        o_string << "Wrong default background value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    if ( gpuFilter->GetForegroundValue() != itk::NumericTraits< InterBinGPUPixType >::max() )
+    {
+        o_string << "Wrong default foreground value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    if ( gpuFilter->GetErodeValue() != itk::NumericTraits< InterBinGPUPixType >::max() )
+    {
+        o_string << "Wrong default erode value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    if ( gpuFilter->GetBoundaryToForeground() != true )
+    {
+        o_string << "Wrong default BoundaryToForeground value." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    //Exercise Set/Get methods for Background Value
+    gpuFilter->SetForegroundValue( iForegroundVal );
+    if ( gpuFilter->GetForegroundValue() != iForegroundVal )
+    {
+        o_string << "Set/Get Foreground value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    // the same with the alias
+    gpuFilter->SetErodeValue( iForegroundVal );
+    if ( gpuFilter->GetErodeValue() != iForegroundVal )
+    {
+        o_string << "Set/Get Erode value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    gpuFilter->SetBackgroundValue( iBackgroundVal );
+    if ( gpuFilter->GetBackgroundValue() != iBackgroundVal )
+    {
+        o_string << "Set/Get Background value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    gpuFilter->SetBoundaryToForeground( iEnableBoundary );
+    if ( gpuFilter->GetBoundaryToForeground() != ( bool ) (iEnableBoundary) )
+    {
+        o_string << "Set/Get BoundaryToForeground value problem." << std::endl;
+        SetLastError( o_string.str().c_str() );
+        return NULL;
+    }
+    
+    // finally, generating output
+    try
+    {
+#ifndef NDEBUG
+        std::cout << "filter settled." << std::endl;
+#endif
+        gpuFilter->Update();
+#ifndef NDEBUG
+        std::cout << "filter updated." << std::endl;
+#endif
+    }
+    catch ( itk::ExceptionObject &e )
+    {
+        o_string << "ERROR: " << e << std::endl;
+        SetLastError( o_string.str().c_str() );
+        
+        itk::ReleaseContext();
+        return NULL;
+    }
+    
+    return gpuFilter->GetOutput();
+}
+
+//--------------------------------------------------------
+BinGPUOutputImageType::Pointer
+CLGPUInterface::BinaryErode( BinCPUInputImageType::Pointer itkImage, const std::vector< unsigned int > & radius, unsigned int kernel_type, bool boundaryToForeground )
+{
+    // some constants used and not directly assigned outside the function are placed here
+    // NOTE, we enable the iEnableBoundary here to make sure the eroded image not get smaller
+    // which is like the 'padding' in deep learning
+    int iForegroundVal = 1, iBackgroundVal = 0;
+    bool iEnableBoundary = boundaryToForeground;
     std::ostringstream o_string;
 
 #ifndef NDEBUG
@@ -493,12 +803,55 @@ CLGPUInterface::BinaryErode( BinCPUInputImageType::Pointer itkImage, int iRadius
     // }
     BinGPUInputImageType::Pointer itkGPUImage = CraftGPUImage< BinCPUInputImageType, BinGPUInputImageType >( itkImage );
     
-    // construct filter
+    // // setting down radiuses, should be transformed to itk size format
+    // if (kernel_type == 0)
+    // {
+    //     // construct filter
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType::SizeType szRadius;
+    //     for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    //     {
+    //         szRadius[idx] = radius[idx];
+    //     }
+    //     SRType kernel;
+    //     kernel.SetRadius( szRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else if (kernel_type == 1)
+    // {
+    //     typedef itk::BinaryCrossStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType::SizeType szRadius;
+    //     for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    //     {
+    //         szRadius[idx] = radius[idx];
+    //     }
+    //     SRType kernel;
+    //     kernel.SetRadius( szRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+    // else
+    // {
+    //     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    //     SRType::SizeType szRadius;
+    //     for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    //     {
+    //         szRadius[idx] = radius[idx];
+    //     }
+    //     SRType kernel;
+    //     kernel.SetRadius( szRadius );
+    //     kernel.CreateStructuringElement();
+    // }
+
     typedef itk::BinaryBallStructuringElement< InterBinGPUPixType, InterGPUDIM > SRType;
+    SRType::SizeType szRadius;
+    for ( unsigned int idx = 0; idx < radius.size(); idx++ )
+    {
+        szRadius[idx] = radius[idx];
+    }
     SRType kernel;
-    kernel.SetRadius( iRadius );
+    kernel.SetRadius( szRadius );
     kernel.CreateStructuringElement();
-    
+
     typedef itk::GPUBinaryErodeImageFilter< BinGPUInputImageType, BinGPUOutputImageType, SRType > FilterType;
     FilterType::Pointer gpuFilter = FilterType::New();
     gpuFilter->SetInput( itkGPUImage );

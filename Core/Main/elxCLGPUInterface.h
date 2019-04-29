@@ -81,11 +81,15 @@ public:
     
     // morphing on binary images
     BinGPUOutputImageType::Pointer
-    BinaryDilate( BinCPUInputImageType::Pointer input, int iRadius );
-    
+    BinaryDilate( BinCPUInputImageType::Pointer input, int iRadius, unsigned int kernel_type, bool boundaryToForeground );
     BinGPUOutputImageType::Pointer
-    BinaryErode( BinCPUInputImageType::Pointer input, int iRadius );
-    
+    BinaryDilate( BinCPUInputImageType::Pointer input, const std::vector< unsigned int > & vRadius, unsigned int kernel_type, bool boundaryToForeground );
+
+    BinGPUOutputImageType::Pointer
+    BinaryErode( BinCPUInputImageType::Pointer input, int iRadius, unsigned int kernel_type, bool boundaryToForeground );
+    BinGPUOutputImageType::Pointer
+    BinaryErode( BinCPUInputImageType::Pointer input, const std::vector< unsigned int > & vRadius, unsigned int kernel_type, bool boundaryToForeground );
+
     BinGPUOutputImageType::Pointer
     BinaryThreshold( CPUInputImageType::Pointer input, double lowerThreshold, double upperThreshold,
                      uint8_t insideValue, uint8_t outsideValue );
