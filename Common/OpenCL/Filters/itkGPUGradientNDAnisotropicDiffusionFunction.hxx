@@ -106,7 +106,7 @@ GPUGradientNDAnisotropicDiffusionFunction< TImage >::GPUGradientNDAnisotropicDif
     defines << "#define ARGTYPE " << pixeltypename << "\n";
 #endif
     // std::cout << "Defines: " << defines.str() << std::endl;
-    itkDebugMacro( << "Defines: " << defines.str() << std::endl );
+    itkWarningMacro( << "Defines: " << defines.str() << std::endl );
     
     const char *GPUSource = GPUGradientNDAnisotropicDiffusionFunction::GetOpenCLSource();
     

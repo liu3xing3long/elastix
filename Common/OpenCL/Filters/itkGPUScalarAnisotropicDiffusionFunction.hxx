@@ -55,7 +55,7 @@ GPUScalarAnisotropicDiffusionFunction< TImage >
   defines << "#define PIXELTYPE ";
   GetTypenameInString( typeid ( typename TImage::PixelType ), defines );
   // std::cout << "Defines: " << defines.str() << std::endl;
-  itkDebugMacro( << "Defines: " << defines.str() << std::endl );
+  itkWarningMacro( << "Defines: " << defines.str() << std::endl );
 
   const char* GPUSource = GPUScalarAnisotropicDiffusionFunction::GetOpenCLSource();
 

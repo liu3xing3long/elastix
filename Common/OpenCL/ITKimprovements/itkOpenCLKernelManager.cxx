@@ -128,7 +128,8 @@ OpenCLKernelManager::SetKernelArg( const std::size_t kernelId, const cl_uint arg
     
     cl_int error;
 #if (defined( _WIN32 ) && defined( _DEBUG )) || !defined( NDEBUG )
-    std::cout << "clSetKernelArg" << "..." << std::endl;
+    std::cout << "clSetKernelArg " << " kernelId " << kernelId << " argId "<< argId << " argSize " << argSize << " argVal "<< argVal<< std::endl;
+    std::cout << "kernel name " << this->GetKernel( kernelId ).GetName() << std::endl;
 #endif
     error = clSetKernelArg( this->GetKernel( kernelId ).GetKernelId(), argId, argSize, argVal );
     

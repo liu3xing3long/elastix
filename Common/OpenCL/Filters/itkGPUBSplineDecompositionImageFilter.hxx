@@ -55,7 +55,18 @@ GPUBSplineDecompositionImageFilter< TInputImage, TOutputImage >
   const unsigned long localMemSize
     = this->m_GPUKernelManager->GetContext()->GetDefaultDevice().GetLocalMemorySize();
 
-  this->m_DeviceLocalMemorySize = ( localMemSize / sizeof( float ) ) - 3 * sizeof( float );
+  unsigned long CONST_LOCAL_MEM = localMemSize;
+  if (TInputImage::ImageDimension == 3)
+  {
+    CONST_LOCAL_MEM = 1024;
+  }
+  else if (TInputImage::ImageDimension == 2)
+  {
+    CONST_LOCAL_MEM = 2048;
+  }
+
+  // this->m_DeviceLocalMemorySize = ( localMemSize / sizeof( float ) ) - 3 * sizeof( float );
+  this->m_DeviceLocalMemorySize = CONST_LOCAL_MEM <= localMemSize? CONST_LOCAL_MEM: localMemSize;
 
   defines << "#define BUFFSIZE " << this->m_DeviceLocalMemorySize << "\n";
   defines << "#define BUFFPIXELTYPE float" << "\n";

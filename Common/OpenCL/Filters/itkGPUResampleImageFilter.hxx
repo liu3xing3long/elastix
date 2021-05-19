@@ -80,7 +80,7 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
   this->m_InterpolatorBase = NULL;
   this->m_TransformBase    = NULL;
 
-  this->m_RequestedNumberOfSplits = 5;
+  this->m_RequestedNumberOfSplits = 6;
 
   std::ostringstream defines;
   if( TInputImage::ImageDimension > 3 || TInputImage::ImageDimension < 1 )
@@ -388,6 +388,7 @@ void
 GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
 ::GPUGenerateData( void )
 {
+  itkDebugMacro( << "enter GPUGenerateData " );
   itkDebugMacro( << "GPUResampleImageFilter::GPUGenerateData() called" );
 
   // Profiling
@@ -401,6 +402,8 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
     = dynamic_cast< GPUInputImage * >( this->ProcessObject::GetInput( 0 ) );
   typename GPUOutputImage::Pointer outPtr
     = dynamic_cast< GPUOutputImage * >( this->ProcessObject::GetOutput( 0 ) );
+  
+  itkDebugMacro( "in/output get" );
 
   // Perform safety checks
   if( inPtr.IsNull() )
@@ -422,6 +425,7 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
                        << " Filter unable to perform." );
     return;
   }
+  itkDebugMacro("outputLargestRegion get");
 
   // Define filter parameters:
   // defaultValue, minValue/maxValue, minOutputValue/maxOutputValue
@@ -432,10 +436,14 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
   parameters.min_max_output.s[ 0 ] = parameters.min_max.s[ 0 ];
   parameters.min_max_output.s[ 1 ] = parameters.min_max.s[ 1 ];
 
+  itkDebugMacro( "m_FilterParameters " );
+
   // Set them to the GPU
   this->m_FilterParameters->SetCPUBufferPointer( &parameters );
   this->m_FilterParameters->SetGPUDirtyFlag( true );
   this->m_FilterParameters->UpdateGPUBuffer();
+
+  itkDebugMacro( "m_FilterParameters done" );
 
   // Define the number of chunks in which we process the image.
   // For now we fix it to a constant value, later we can support user defined
@@ -496,10 +504,14 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
       break;
   }
 
+  itkDebugMacro( "m_DeformationFieldBuffer " );
+  
   this->m_DeformationFieldBuffer->Initialize();
   this->m_DeformationFieldBuffer->SetBufferFlag( CL_MEM_READ_WRITE );
   this->m_DeformationFieldBuffer->SetBufferSize( mem_size_DF );
   this->m_DeformationFieldBuffer->Allocate();
+
+  itkDebugMacro("m_DeformationFieldBuffer done" );
 
   // Set arguments for pre kernel
   this->SetArgumentsForPreKernelManager( outPtr );
@@ -518,7 +530,7 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
   const OpenCLSize localWorkSize
     = OpenCLSize::GetLocalWorkSize( this->m_PreKernelManager->GetContext()->GetDefaultDevice() );
   std::size_t local3D[ 3 ], local2D[ 2 ], local1D;
-
+  
   local3D[ 0 ] = local2D[ 0 ] = local1D = localWorkSize[ 0 ];
   local3D[ 1 ] = local2D[ 1 ] = localWorkSize[ 1 ];
   local3D[ 2 ] = localWorkSize[ 2 ];
@@ -527,12 +539,17 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
   std::size_t global3D[ 3 ], global2D[ 2 ], global1D;
   std::size_t offset3D[ 3 ], offset2D[ 2 ], offset1D;
 
+  // OpenCLEventList eventList;
+
   // Some temporaries
-  OpenCLEventList eventList;
   unsigned int    piece;
   OpenCLSize      global_work_size;
   OpenCLSize      global_work_offset;
 
+  itkDebugMacro("running kernel begin" );
+
+  OpenCLEventList eventList;
+  
   /** Loop over the chunks. */
   for( piece = 0; piece < numberOfChunks && !this->GetAbortGenerateData(); ++piece )
   {
@@ -678,10 +695,12 @@ GPUResampleImageFilter< TInputImage, TOutputImage, TInterpolatorPrecisionType >
     OpenCLEvent postEvent = this->m_PostKernelManager->LaunchKernel(
       this->m_FilterPostGPUKernelHandle, eventList );
     eventList.Append( postEvent );
+
   }
 
   eventList.WaitForFinished();
 
+  itkDebugMacro("running kernel done");
   itkDebugMacro( << "GPUResampleImageFilter::GPUGenerateData() finished" );
 } // end GPUGenerateData()
 
